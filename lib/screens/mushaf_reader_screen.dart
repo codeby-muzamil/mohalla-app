@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 import '../services/mushaf_service.dart';
+import '../services/quran_audio_cache.dart';
+import '../services/quran_reciters.dart';
 import '../services/quran_service.dart';
 import '../services/settings_provider.dart';
+import '../services/translation_audio_cache.dart';
+import '../services/translation_text_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/pattern.dart';
@@ -27,11 +32,22 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   int _page = 1;
   bool _loading = true;
 
+  // Page audio: plays the current page's ayat in order through the
+  // same reciter / audio-mode / translation-voice settings as the
+  // Surah reader. Stops when the page turns or the button is tapped.
+  final AudioPlayer _pagePlayer = AudioPlayer();
+  bool _playingPage = false;
+
   @override
   void initState() {
     super.initState();
     _page = context.read<SettingsProvider>().mushafPage;
     _controller = PageController(initialPage: _page - 1);
+    _pagePlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed && mounted) {
+        setState(() => _playingPage = false);
+      }
+    }, onError: (_) {});
     Future.wait([MushafService.load(), QuranService.load()]).then((_) {
       if (mounted) setState(() => _loading = false);
     });
@@ -39,8 +55,79 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   @override
   void dispose() {
+    _pagePlayer.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Audio sources for one ayah — same logic as the Surah reader
+  /// (duplicated here on purpose; no shared service in this pass):
+  /// Arabic source first (unless mode is 'translation'), then the
+  /// translation source when a voice is chosen and the mode asks
+  /// for it. Each source prefers the downloaded file, else streams.
+  Future<List<AudioSource>> _ayahSources(int surah, int ayahIndex) async {
+    final settings = context.read<SettingsProvider>();
+    final global = QuranService.globalAyahNumber(surah, ayahIndex);
+    final ayahNumber = ayahIndex + 1;
+    final voice = settings.translationVoice;
+    final mode = settings.quranAudioMode;
+    final wantTranslation = mode != 'arabic' && voice != null;
+    final sources = <AudioSource>[];
+    if (mode != 'translation' || !wantTranslation) {
+      final local = await QuranAudioCache.localFileForAyah(
+        surah,
+        ayahIndex,
+        reciterId: settings.reciterId,
+      );
+      if (local != null) {
+        sources.add(AudioSource.file(local.path));
+      } else {
+        sources.add(
+          AudioSource.uri(Uri.parse(settings.reciter.ayahUrl(global))),
+        );
+      }
+    }
+    if (wantTranslation) {
+      final tLocal = await TranslationAudioCache.localFileForAyah(
+        voice!.id,
+        surah,
+        ayahNumber,
+      );
+      if (tLocal != null) {
+        sources.add(AudioSource.file(tLocal.path));
+      } else {
+        sources.add(
+          AudioSource.uri(
+            Uri.parse(voice.urlFor(surah, ayahNumber, global)),
+          ),
+        );
+      }
+    }
+    return sources;
+  }
+
+  Future<void> _playPage() async {
+    final ayahs = MushafService.pageAyahs(_page);
+    final sources = <AudioSource>[];
+    for (final (s, a) in ayahs) {
+      sources.addAll(await _ayahSources(s, a - 1));
+    }
+    if (sources.isEmpty) return;
+    setState(() => _playingPage = true);
+    try {
+      await _pagePlayer.stop();
+      await _pagePlayer.setAudioSource(
+        ConcatenatingAudioSource(children: sources),
+      );
+      await _pagePlayer.play();
+    } catch (_) {
+      if (mounted) setState(() => _playingPage = false);
+    }
+  }
+
+  void _stopPage() {
+    _pagePlayer.stop();
+    setState(() => _playingPage = false);
   }
 
   void _goToPage(int page) {
@@ -135,6 +222,31 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     final cardLine =
         isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight;
+    // Extra translation for this page's ayat (a third language).
+    // Downloaded on demand, one surah at a time; the sheet opens
+    // immediately and fills the extra lines in when they arrive.
+    final extraId = settings.extraTranslationId;
+    final distinctSurahs = <int>{for (final (s, _) in ayahs) s}.toList();
+    var extraLoading = extraId.isNotEmpty;
+    var extraLoadStarted = false;
+    Map<String, String>? extraTexts;
+
+    Future<Map<String, String>> loadExtra() async {
+      final map = <String, String>{};
+      try {
+        for (final s in distinctSurahs) {
+          await TranslationTextService.ensureSurah(extraId, s);
+        }
+        for (final (s, a) in ayahs) {
+          map['$s:$a'] =
+              await TranslationTextService.ayah(extraId, s, a - 1);
+        }
+      } catch (_) {
+        // Silent — the Urdu/English lines still show.
+      }
+      return map;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -142,7 +254,16 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
+      builder: (ctx) => StatefulBuilder(
+        builder: (c, setSheetState) {
+          if (extraLoading && !extraLoadStarted) {
+            extraLoadStarted = true;
+            loadExtra().then((map) {
+              extraTexts = map;
+              setSheetState(() => extraLoading = false);
+            });
+          }
+          return DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
         maxChildSize: 0.95,
@@ -175,6 +296,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                 'Urdu (Jalandhari) + English (Asad) — the same verified translation as the Surah reader.',
                 style: TextStyle(fontSize: 12, color: muted),
               ),
+              if (extraLoading)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Downloading translation…',
+                    style: TextStyle(fontSize: 12, color: muted),
+                  ),
+                ),
               const SizedBox(height: 12),
               Expanded(
                 child: ListView.builder(
@@ -212,6 +341,18 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                   ),
                                 ),
                               ),
+                            if (extraTexts != null &&
+                                (extraTexts!['$s:$a'] ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  extraTexts!['$s:$a']!,
+                                  style: const TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -222,6 +363,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ],
           ),
         ),
+      ),
+        },
       ),
     );
   }
@@ -245,6 +388,19 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: _playingPage ? 'Stop page audio' : 'Play this page',
+            icon: Icon(_playingPage ? Icons.stop : Icons.play_arrow),
+            onPressed: _loading
+                ? null
+                : () {
+                    if (_playingPage) {
+                      _stopPage();
+                    } else {
+                      _playPage();
+                    }
+                  },
+          ),
           IconButton(
             tooltip: 'Go to Surah',
             icon: const Icon(Icons.menu_book),
@@ -289,6 +445,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     controller: _controller,
                     itemCount: MushafService.totalPages,
                     onPageChanged: (i) {
+                      if (_playingPage) {
+                        _pagePlayer.stop();
+                        _playingPage = false;
+                      }
                       setState(() => _page = i + 1);
                       settings.setMushafPage(i + 1);
                     },

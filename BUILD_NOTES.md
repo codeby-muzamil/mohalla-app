@@ -523,3 +523,109 @@ says exactly what is missing and how to fill it.
   shows the current month (state is rebuilt on open).
 - The Hijri date itself comes from the `hijri` package (device
   Islamic calendar) ± the Settings adjustment (-1/0/+1 day).
+
+## Complete Quran — reciters, translation audio, 51 translation languages (2026-11-19 ~00:40 PKT)
+- **Why:** full Quran listening — Arabic in several voices, translation
+  read aloud, translation text in 50+ languages — all offline after
+  download, all on the 16-line single-page Mushaf.
+- **NO new pubspec dependency.** Everything uses http / path_provider /
+  shared_preferences, already in the app. No audio is bundled in the
+  APK — every reciter, voice and language is download-on-demand.
+- **Reciter picker (6 voices, all verified HTTP 200 on 2026-11-19):**
+  Mishary Alafasy (128kbps), Abdul Basit (192kbps), Abdurrahmaan
+  As-Sudais (192kbps), Mahmoud Khalil Al-Husary (128), Mohamed Siddiq
+  Al-Minshawi (128), Maher Al Muaiqly (128). BITRATE IS PER RECITER:
+  Abdul Basit + Sudais 403 at 128kbps — their 192kbps URLs work.
+  DROPPED (403): ar.abdullahbasfar, ar.saoodshuraym. Per-ayah MP3s
+  from cdn.islamic.network/quran/audio/{bitrate}/{edition}/{globalAyah}.mp3.
+  Per-surah single files exist ONLY for Alafasy (Baqarah 116 MB) and
+  Abdul Basit (100 MB) — the app never plays them; they are used only
+  for the download-size estimate.
+- `lib/services/quran_reciters.dart` (NEW): QuranReciter (id, edition,
+  bitrate, label, note; ayahUrl/surahUrl, byEdition) + TranslationVoice.
+- `lib/services/quran_audio_cache.dart`: all methods take optional
+  `{String reciterId = 'ar.alafasy'}`; Alafasy keeps the EXISTING
+  cache dir `quran_audio/<surah>/` (old downloads still work); other
+  reciters use `quran_audio/<reciterId>/<surah>/`. New
+  `estimateSurahBytes` (HEAD on the per-surah file when it exists,
+  else ayah-count × ~180 KB @128k / ~270 KB @192k). `_downloading`
+  is now keyed `reciterId:surah` (was a plain surah set).
+- `lib/services/quran_service.dart`: `audioUrlForGlobalAyah(global,
+  [edition, bitrate])` — old single-arg calls still work.
+- `lib/services/settings_provider.dart`: new persisted settings —
+  `reciterId` (default 'ar.alafasy'), `translationVoiceId` (default
+  '' = off), `extraTranslationId` (default '' = none),
+  `quranAudioMode` (default 'arabic'; 'arabic' | 'interleaved' |
+  'translation'), with getters + validating setters.
+- **Translation audio (human voice, only 2 languages exist anywhere
+  as per-ayah audio):** Urdu — Shamshad Ali Khan, everyayah.com
+  `.../translations/urdu_shamshad_ali_khan_46kbps/{SSS}{AAA}.mp3`
+  (folder name is LOWERCASE — the mixed-case name 404s; verified
+  001001/002001/114006 = 200). English — Ibrahim Walk, Islamic
+  Network CDN `.../audio/192/en.walk/{globalAyah}.mp3` (verified 200;
+  there is NO English folder on everyayah, and the 128kbps URL 403s).
+  `lib/services/translation_audio_cache.dart` (NEW): per-ayah download
+  cache `translation_audio/<voiceId>/<surah>/<SSSAAA>.mp3`, same
+  .tmp+rename/resume model as the Arabic cache.
+- **Playback modes (surah reader):** Arabic only / Arabic then
+  translation (interleaved) / Translation only — built with
+  just_audio `ConcatenatingAudioSource`; downloaded files play
+  offline, otherwise streams. Mushaf reader: AppBar Play button
+  plays the whole page's ayat in order (same modes), stops on page
+  change or tap.
+- **Translation TEXT, 51 languages** (one edition per language):
+  47 from alquran.cloud (all confirmed format 'text'; 'ar' entries
+  are audio, so 47 not 48) + 4 from QuranEnc — Gujarati
+  (gujarati_omari, Rabella Al-Omari), Vietnamese (vietnamese_rwwad,
+  Rowwad), Yoruba (yoruba_mikail, Abu Rahimah Mikael), Oromo
+  (oromo_rwwad, Rowwad). Tanzil adds ZERO new languages (verified —
+  all its languages are already on alquran.cloud) and is not used.
+  `lib/services/translation_text_service.dart` (NEW): per-surah
+  download + disk cache `translations/<editionId>/<surah>.json`,
+  in-memory cache capped at 30 surahs. alquran.cloud:
+  GET /v1/surah/{n}/{edition}; QuranEnc: GET
+  /api/v1/translation/sura/{key}/{sura} → {"result": [{"aya",
+  "translation", ...}]} (verified live; footnote markers like "[1]"
+  are passed through as-is). The reader shows the chosen language
+  under each ayah (in addition to bundled Urdu/English); the Mushaf
+  Tarjuma sheet shows it for the page's ayat. Settings has an
+  'Extra translation language' picker (51 languages, language +
+  translator). Arabic + Urdu (Jalandhari) + English (Asad) stay
+  bundled as before; default translation display stays Urdu.
+- **Settings screen:** new 'Quran audio & translation' section
+  (reciter, translation voice, audio mode, extra language).
+- **Mushaf stays 16-line, one page at a time** — page layout
+  (_MushafPage/_MushafLine) untouched; audio + translation attach
+  to it only.
+- **flutter_tts NOT added (skipped, on purpose):** flutter_tts 4.2.5
+  resolves fine (sdk >=3.4.0 <4.0.0, zero third-party deps, no
+  pubspec conflict — verified on pub.dev 2026-11-19), BUT its README
+  requires an AndroidManifest `<queries>` block so the app can
+  discover TTS engines on Android 11+ — that file was outside the
+  allowed scope for this pass. The 'Phone voice' (device TTS) button
+  is therefore NOT in this build. To add it later (2 minutes):
+  add `flutter_tts: 4.2.5` to pubspec, add this inside
+  `android/app/src/main/AndroidManifest.xml` under `<manifest>`:
+  `<queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent></queries>`
+  then wire a small TtsService (speak/stop/setLanguage) + a
+  'Phone voice' button under the shown translation.
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter clean`,
+  `flutter build apk --release --split-per-abi`, install arm64 APK
+  (uninstall old first).
+- **Phone tests:** (1) Settings → Quran audio & translation → pick
+  Husary, open a surah, play an ayah (streams), download the surah
+  (shows ≈ size, progress, offline play after). (2) Pick Sudais
+  (192kbps) and repeat — the 192kbps path is the one that 403'd at
+  128. (3) Translation voice Urdu → mode 'Arabic, then translation'
+  → ayah plays Arabic then Urdu; download the surah's Urdu audio,
+  turn on airplane mode, play again. (4) English voice → same.
+  (5) Extra translation → pick Yoruba (QuranEnc) or Gujarati →
+  open a surah → translation appears under each ayah (first open
+  downloads it — needs internet once). (6) Mushaf → Play button
+  plays the page; Tarjuma shows the extra language. (7) Restart the
+  app — reciter/voice/mode/language choices must stick.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run; in-app playback/download of the new reciters,
+  voices and QuranEnc languages is unproven until the phone build.
+  Balance checks (raw braces/parens/brackets) on all 9 changed
+  files are 0/0/0.

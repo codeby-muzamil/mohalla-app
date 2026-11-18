@@ -122,11 +122,18 @@ class QuranService {
     return juz;
   }
 
-  /// Online per-ayah audio (Alafasy, 128kbps) — needs internet.
-  /// Pattern: https://cdn.islamic.network/quran/audio/128/ar.alafasy/{n}.mp3
-  /// where n is the GLOBAL ayah number (1..6236).
-  static String audioUrlForGlobalAyah(int globalAyahNumber) =>
-      'https://cdn.islamic.network/quran/audio/128/ar.alafasy/$globalAyahNumber.mp3';
+  /// Online per-ayah audio — needs internet.
+  /// Pattern: https://cdn.islamic.network/quran/audio/{bitrate}/{edition}/{n}.mp3
+  /// where n is the GLOBAL ayah number (1..6236). The bitrate is per
+  /// reciter: Abdul Basit and Sudais are 192kbps, the rest 128 —
+  /// their 128kbps URLs return 403 (verified 2026-11-19).
+  /// Defaults keep the old Alafasy behaviour.
+  static String audioUrlForGlobalAyah(
+    int globalAyahNumber, [
+    String edition = 'ar.alafasy',
+    int bitrate = 128,
+  ]) =>
+      'https://cdn.islamic.network/quran/audio/$bitrate/$edition/$globalAyahNumber.mp3';
 
   /// Global ayah number (1..6236) for surah + ayah-in-surah.
   static int globalAyahNumber(int surahNumber, int ayahIndex) {

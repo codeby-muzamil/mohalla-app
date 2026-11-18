@@ -4,6 +4,9 @@ import 'package:adhan/adhan.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'quran_reciters.dart';
+import 'translation_text_service.dart';
+
 /// All user settings in one place, persisted with SharedPreferences.
 /// Everything in here is stored ON THE PHONE ONLY — nothing is uploaded
 /// anywhere (there is no backend until Firebase is added, see BUILD_NOTES).
@@ -38,6 +41,10 @@ class SettingsProvider extends ChangeNotifier {
   static const _kBookmarks = 'quran_bookmarks';
   static const _kLastRead = 'quran_last_read';
   static const _kMushafPage = 'mushaf_page';
+  static const _kReciter = 'quran_reciter';
+  static const _kTransVoice = 'quran_translation_voice';
+  static const _kExtraTrans = 'quran_extra_translation';
+  static const _kAudioMode = 'quran_audio_mode';
 
   bool darkMode = false;
   bool elderMode = false;
@@ -169,6 +176,35 @@ class SettingsProvider extends ChangeNotifier {
   String quranTheme = 'paper'; // see ReaderTheme ids
   String quranTranslation = 'both'; // urdu | english | both | off
 
+  /// Arabic reciter edition id (see [QuranReciter.all]).
+  /// Default 'ar.alafasy' (Mishary Alafasy).
+  String reciterId = 'ar.alafasy';
+
+  /// Spoken-translation voice id (see [TranslationVoice.all]),
+  /// or '' for none. Only Urdu and English have a voice.
+  String translationVoiceId = '';
+
+  /// Extra translation edition id (see [TranslationTextService.all]),
+  /// or '' for none. Shown as a third line under each ayah.
+  String extraTranslationId = '';
+
+  /// Audio mode: 'arabic' (Arabic only), 'interleaved' (Arabic then
+  /// translation per ayah), or 'translation' (translation only).
+  String quranAudioMode = 'arabic';
+
+  /// The selected Arabic reciter (falls back to Alafasy).
+  QuranReciter get reciter => QuranReciter.byEdition(reciterId);
+
+  /// The selected spoken-translation voice, or null when none.
+  TranslationVoice? get translationVoice => translationVoiceId.isEmpty
+      ? null
+      : TranslationVoice.byId(translationVoiceId);
+
+  /// The selected extra translation edition, or null when none.
+  TranslationEdition? get extraTranslation => extraTranslationId.isEmpty
+      ? null
+      : TranslationTextService.byId(extraTranslationId);
+
   String masjidName = '';
   String? masjidPhotoPath; // local file path from image_picker, or null
   String? boardPhotoPath; // photo of the timings board, or null
@@ -232,6 +268,26 @@ class SettingsProvider extends ChangeNotifier {
     quranFontSize = p.getDouble(_kQuranSize) ?? 26;
     quranTheme = p.getString(_kQuranTheme) ?? 'paper';
     quranTranslation = p.getString(_kQuranTrans) ?? 'both';
+    reciterId = p.getString(_kReciter) ?? 'ar.alafasy';
+    if (!QuranReciter.all.any((r) => r.edition == reciterId)) {
+      reciterId = 'ar.alafasy';
+    }
+    translationVoiceId = p.getString(_kTransVoice) ?? '';
+    if (translationVoiceId.isNotEmpty &&
+        TranslationVoice.byId(translationVoiceId) == null) {
+      translationVoiceId = '';
+    }
+    extraTranslationId = p.getString(_kExtraTrans) ?? '';
+    if (extraTranslationId.isNotEmpty &&
+        TranslationTextService.byId(extraTranslationId) == null) {
+      extraTranslationId = '';
+    }
+    quranAudioMode = p.getString(_kAudioMode) ?? 'arabic';
+    if (quranAudioMode != 'arabic' &&
+        quranAudioMode != 'interleaved' &&
+        quranAudioMode != 'translation') {
+      quranAudioMode = 'arabic';
+    }
     masjidName = p.getString(_kMasjidName) ?? '';
     masjidPhotoPath = p.getString(_kMasjidPhoto);
     boardPhotoPath = p.getString(_kBoardPhoto);
@@ -275,6 +331,10 @@ class SettingsProvider extends ChangeNotifier {
     await p.setDouble(_kQuranSize, quranFontSize);
     await p.setString(_kQuranTheme, quranTheme);
     await p.setString(_kQuranTrans, quranTranslation);
+    await p.setString(_kReciter, reciterId);
+    await p.setString(_kTransVoice, translationVoiceId);
+    await p.setString(_kExtraTrans, extraTranslationId);
+    await p.setString(_kAudioMode, quranAudioMode);
     await p.setString(_kMasjidName, masjidName);
     if (masjidPhotoPath != null) {
       await p.setString(_kMasjidPhoto, masjidPhotoPath!);
@@ -374,6 +434,34 @@ class SettingsProvider extends ChangeNotifier {
 
   void setQuranTranslation(String v) {
     quranTranslation = v;
+    _save();
+    notifyListeners();
+  }
+
+  void setReciterId(String v) {
+    if (!QuranReciter.all.any((r) => r.edition == v)) return;
+    reciterId = v;
+    _save();
+    notifyListeners();
+  }
+
+  void setTranslationVoiceId(String v) {
+    if (v.isNotEmpty && TranslationVoice.byId(v) == null) return;
+    translationVoiceId = v;
+    _save();
+    notifyListeners();
+  }
+
+  void setExtraTranslationId(String v) {
+    if (v.isNotEmpty && TranslationTextService.byId(v) == null) return;
+    extraTranslationId = v;
+    _save();
+    notifyListeners();
+  }
+
+  void setQuranAudioMode(String v) {
+    if (v != 'arabic' && v != 'interleaved' && v != 'translation') return;
+    quranAudioMode = v;
     _save();
     notifyListeners();
   }

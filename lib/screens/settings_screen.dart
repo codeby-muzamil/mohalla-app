@@ -5,7 +5,9 @@ import 'profile_edit_screen.dart';
 import '../services/gemini_service.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
+import '../services/quran_reciters.dart';
 import '../services/settings_provider.dart';
+import '../services/translation_text_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/timings_editor.dart';
@@ -59,6 +61,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? 'Key removed — AI Dost is back to offline answers.'
           : 'Key saved on this phone only — Gemini is connected.';
     });
+  }
+
+  /// Language picker for the extra (third) Quran translation.
+  /// 'None' keeps Urdu + English.
+  void _showExtraTranslationDialog() {
+    final settings = context.read<SettingsProvider>();
+    final current = settings.extraTranslation;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Extra translation language'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 420,
+          child: ListView.builder(
+            itemCount: TranslationTextService.all.length + 1,
+            itemBuilder: (c, i) {
+              if (i == 0) {
+                return ListTile(
+                  title: const Text('None'),
+                  subtitle: const Text('Urdu + English only'),
+                  trailing: current == null
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    settings.setExtraTranslationId('');
+                    Navigator.pop(ctx);
+                  },
+                );
+              }
+              final e = TranslationTextService.all[i - 1];
+              return ListTile(
+                title: Text(e.languageName),
+                subtitle: Text(e.translator),
+                trailing: current?.id == e.id
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () {
+                  settings.setExtraTranslationId(e.id);
+                  Navigator.pop(ctx);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _testVoice(String voiceId) async {
@@ -445,6 +500,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(fontSize: 12, color: muted),
             ),
           ),
+        const SizedBox(height: 8),
+        const SectionTitle(title: 'Quran audio & translation'),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < QuranReciter.all.length; i++) ...[
+                if (i > 0) const Divider(height: 1),
+                RadioListTile<String>(
+                  contentPadding: tilePadding,
+                  title: Text(QuranReciter.all[i].label),
+                  subtitle: Text(QuranReciter.all[i].note),
+                  value: QuranReciter.all[i].edition,
+                  groupValue: settings.reciterId,
+                  onChanged: (v) {
+                    if (v == null) return;
+                    settings.setReciterId(v);
+                  },
+                ),
+              ],
+              const Divider(height: 1),
+              const ListTile(
+                contentPadding: tilePadding,
+                title: Text('Translation voice'),
+                subtitle: Text(
+                  'Spoken translation played after each Arabic ayah.',
+                ),
+              ),
+              RadioListTile<String>(
+                contentPadding: tilePadding,
+                title: const Text('Off'),
+                subtitle: const Text('Arabic audio only'),
+                value: '',
+                groupValue: settings.translationVoiceId,
+                onChanged: (v) {
+                  if (v == null) return;
+                  settings.setTranslationVoiceId(v);
+                },
+              ),
+              for (final v in TranslationVoice.all) ...[
+                const Divider(height: 1),
+                RadioListTile<String>(
+                  contentPadding: tilePadding,
+                  title: Text(v.label),
+                  value: v.id,
+                  groupValue: settings.translationVoiceId,
+                  onChanged: (val) {
+                    if (val == null) return;
+                    settings.setTranslationVoiceId(val);
+                  },
+                ),
+              ],
+              const Divider(height: 1),
+              const ListTile(
+                contentPadding: tilePadding,
+                title: Text('Audio mode'),
+                subtitle: Text('How ayah audio plays.'),
+              ),
+              for (final e in const [
+                (
+                  'arabic',
+                  'Arabic only',
+                  'Only the Arabic recitation.',
+                ),
+                (
+                  'interleaved',
+                  'Arabic, then translation',
+                  'Arabic ayah, then its translation.',
+                ),
+                (
+                  'translation',
+                  'Translation only',
+                  'Only the spoken translation.',
+                ),
+              ]) ...[
+                const Divider(height: 1),
+                RadioListTile<String>(
+                  contentPadding: tilePadding,
+                  title: Text(e.$2),
+                  subtitle: Text(e.$3),
+                  value: e.$1,
+                  groupValue: settings.quranAudioMode,
+                  onChanged: (v) {
+                    if (v == null) return;
+                    settings.setQuranAudioMode(v);
+                  },
+                ),
+              ],
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: tilePadding,
+                title: const Text('Extra translation language'),
+                subtitle: Text(
+                  settings.extraTranslation == null
+                      ? 'None — Urdu + English only'
+                      : '${settings.extraTranslation!.languageName} — '
+                          '${settings.extraTranslation!.translator}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _showExtraTranslationDialog,
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
         const SectionTitle(title: 'AI Friend (Gemini)'),
         Card(
