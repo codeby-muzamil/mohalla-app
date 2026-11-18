@@ -67,6 +67,13 @@ dependencies:
   provider: 6.1.5+1
   # Open Google Maps links for nearby mosques (no Maps API key needed).
   url_launcher: 6.3.0
+  # Full map on the My Location screen (OpenStreetMap tiles, free —
+  # no API key, no Google Cloud project). Versions verified on
+  # pub.dev 2026-11-19: flutter_map 8.3.2 needs sdk >=3.6.0 and
+  # flutter >=3.27.0 (app: Dart 3.14 / Flutter 3.50); latlong2
+  # 0.10.1 needs intl >=0.15.0 <1.0.0 (app intl is 0.20.3).
+  flutter_map: 8.3.2
+  latlong2: 0.10.1
 
   # ---- Firebase is OPTIONAL — uncomment ONLY after adding
   # android/app/google-services.json (see BUILD_NOTES.md). ----

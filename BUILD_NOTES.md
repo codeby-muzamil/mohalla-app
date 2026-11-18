@@ -431,3 +431,32 @@ says exactly what is missing and how to fill it.
   `git add -A`, `git commit -m "Install icons 5A/5B"`, `git push`,
   `flutter pub get`, `flutter clean`, `flutter build apk --release`,
   install `build\app\outputs\flutter-apk\app-arm64-v8a-release.apk`.
+
+## Manual map location (2026-11-19 ~00:05 PKT)
+- **Why:** GPS test with a VPN on "did not work" — a VPN cannot move GPS
+  (GPS comes from satellites, not the network), and a cold indoor fix can
+  also miss the old 10s timeout. The map pin is now the manual way to set
+  any location on purpose.
+- `pubspec.yaml`: + `flutter_map 8.3.2` (OpenStreetMap tiles, free, no API
+  key — verified on pub.dev: sdk >=3.6.0, flutter >=3.27.0; needs
+  latlong2 >=0.9.1 <0.11.0, http ^1.5.0 — app has Dart 3.14 /
+  Flutter 3.50 / http 1.6.0) + `latlong2 0.10.1` (sdk >=3.0.0,
+  intl >=0.15.0 <1.0.0 — app intl is 0.20.3). No Google Maps key, no
+  manifest change (INTERNET permission already present).
+- `lib/services/location_service.dart`: manual pin (`manualLocation`,
+  persisted as 'manual_location_json'). `current` is now a getter —
+  manual pin ?? GPS fix — so ALL readers (Home, Qibla, mosques, Azan
+  scheduling, header) switch to the pin at once with no other file
+  changed. `setManualLocation(lat, lng)` (reverse-geocodes the pin),
+  `clearManualLocation()` (back to GPS + refresh). GPS `timeLimit`
+  raised 10s -> 30s (cold indoor fix). Header shows '(manual)'.
+- `lib/screens/location_screen.dart`: full map (340px, OSM tiles) +
+  place search (Nominatim, free, no key) + tap-to-pin + "Use GPS
+  location" + re-centre button. Prayer-times and Qibla cards below
+  the map now follow the pin (they read `location.current`).
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter build apk
+  --release --split-per-abi`, install arm64 APK (uninstall old first).
+  Phone test: open My Location, tap the map in another city, check
+  prayer times change; press "Use GPS location", check they return.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run. Phone build is the proof.
