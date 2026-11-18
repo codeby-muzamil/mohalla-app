@@ -727,3 +727,25 @@ says exactly what is missing and how to fill it.
 - **Build (owner):** `git pull`, `flutter build apk --release
   --split-per-abi`. Check: close the app fully, reopen — splash
   (5A) shows, then Home. Header/login also show 5A now.
+
+## Phone voice: male + heavy everywhere (2026-11-19 ~02:00 PKT)
+- **Complaint (owner):** some Quran translations read aloud in a
+  female phone voice; he wants male voice only, heavy/deep like
+  Qari Abdul Basit's. (The recorded translation audio — Shamshad
+  Ali Khan Urdu, Ibrahim Walk English — was already male; the
+  female voice was the phone's default TTS voice.)
+- **Fix (translation_tts_service.dart only — it is the app's ONLY
+  phone voice, so this covers the whole app):** per language, the
+  service now picks a male-named installed voice
+  ("...#male_1-local", female checked first because 'female'
+  contains 'male'; falls back to any non-female voice) via
+  setVoice after setLanguage, and the pitch is lowered 1.0 -> 0.75
+  for a deeper, heavier voice.
+- **Honest limit:** if the phone has NO male voice installed for a
+  language, the engine default is used — the app cannot invent a
+  voice. Male voices can be added in the phone's TTS settings
+  (Google TTS -> Install voice data).
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`. Test the speaker button on an ayah + the
+  Mushaf Tarjuma sheet: Urdu + English should both sound male
+  and deep now.

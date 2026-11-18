@@ -14,6 +14,12 @@ class TtsPart {
 /// a voice for. Everything is best-effort: any failure returns
 /// false and the UI says so honestly. Never throws.
 ///
+/// Voice is always MALE and deep (heavy) wherever the phone offers
+/// one: a male-named voice is picked per language and the pitch is
+/// lowered. The phone's default voice (often female) is never used
+/// when a male one exists. This service is the app's ONLY phone
+/// voice, so the rule covers the whole app.
+///
 /// Only one reading runs at a time: starting a new one (or stop())
 /// invalidates the previous run via a generation counter, so two
 /// readings can never talk over each other.
@@ -81,7 +87,8 @@ class TranslationTtsService {
     if (_configured) return;
     try {
       await _tts.setSpeechRate(0.5);
-      await _tts.setPitch(1.0);
+      // Heavy / deep voice (like a Qari's): pitch below 1.0.
+      await _tts.setPitch(0.75);
       await _tts.setVolume(1.0);
       await _tts.awaitSpeakCompletion(true);
       _configured = true;
@@ -98,6 +105,7 @@ class TranslationTtsService {
     await _ensureConfigured();
     try {
       final installed = await _installedLanguages();
+      final voices = await _loadVoices();
       for (final part in parts) {
         if (gen != _generation) return false;
         final text = part.text.trim();
@@ -105,6 +113,15 @@ class TranslationTtsService {
         final locale = _locales[part.languageCode] ?? part.languageCode;
         if (!_languageUsable(installed, locale)) return false;
         await _tts.setLanguage(locale);
+        // Male voice for this language when the phone has one.
+        // setVoice carries its own locale, so it goes AFTER
+        // setLanguage — otherwise the language reset drops it.
+        final voice = _pickMaleVoice(voices, locale);
+        if (voice != null) {
+          try {
+            await _tts.setVoice(voice);
+          } catch (_) {}
+        }
         if (gen != _generation) return false;
         await _tts.speak(text);
       }
@@ -130,6 +147,51 @@ class TranslationTtsService {
       }
     } catch (_) {}
     return <String>{};
+  }
+
+  /// All installed TTS voices as {name, locale} maps. Best-effort:
+  /// an empty list means "use the engine default".
+  Future<List<Map<String, String>>> _loadVoices() async {
+    try {
+      final voices = await _tts.getVoices;
+      if (voices is List) {
+        return voices
+            .whereType<Map>()
+            .map((m) => {
+                  'name': m['name']?.toString() ?? '',
+                  'locale': m['locale']?.toString() ?? '',
+                })
+            .where((v) => v['name']!.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  /// Male voice for [locale] when the phone offers one. Android
+  /// voice names carry the gender ("...#male_1-local",
+  /// "...#female_2-local") — 'female' contains 'male', so the
+  /// female check must come first. Falls back to any voice that is
+  /// not explicitly female; null means "keep the engine default".
+  Map<String, String>? _pickMaleVoice(
+      List<Map<String, String>> voices, String locale) {
+    final lang = locale.split('-').first.toLowerCase();
+    final sameLocale = voices.where((v) {
+      final l = (v['locale'] ?? '').toLowerCase();
+      return l == locale.toLowerCase() ||
+          l == lang ||
+          l.startsWith('$lang-');
+    }).toList();
+    if (sameLocale.isEmpty) return null;
+    for (final v in sameLocale) {
+      final name = (v['name'] ?? '').toLowerCase();
+      if (name.contains('male') && !name.contains('female')) return v;
+    }
+    for (final v in sameLocale) {
+      final name = (v['name'] ?? '').toLowerCase();
+      if (!name.contains('female')) return v;
+    }
+    return null;
   }
 
   /// True when the engine lists the locale (or its language part),
