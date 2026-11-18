@@ -460,3 +460,29 @@ says exactly what is missing and how to fill it.
   prayer times change; press "Use GPS location", check they return.
 - **Not verified here:** no Flutter toolchain — `flutter analyze` /
   build NOT run. Phone build is the proof.
+
+## In-app mosques + directions (2026-11-19 ~00:10 PKT)
+- **Why:** "Find mosques near me" opened Google Maps. Now the list AND
+  the directions both live in the app.
+- `lib/services/mosque_service.dart` (NEW): `fetchNearbyMosques` via the
+  free OpenStreetMap Overpass API (no key, no billing — Google Places
+  would need a key + billing); keeps Muslim places of worship, dedupes
+  node+way doubles, sorts by distance. `fetchRoute` via the free OSRM
+  router (no key): walking profile first, driving fallback; returns
+  the path + distance + walking time + turn-by-turn steps.
+- `lib/screens/mosques_screen.dart`: map (OSM) with mosque pins +
+  route polyline, radius chips (2/5/10 km), in-app list (name,
+  distance, compass direction), tap a mosque (list or pin) for
+  in-app walking directions (route drawn on the map + steps with
+  distances). No Google Maps in the find flow any more. The list
+  re-fetches when GPS arrives or the manual map pin moves.
+  Own-mosque card kept as-is.
+- **Limits:** the list is only what OpenStreetMap has mapped — small
+  unnamed mosques may be missing; no Iqama times exist anywhere to
+  show. Routes + map tiles need internet.
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter build apk
+  --release --split-per-abi`, install arm64 APK (uninstall old first).
+  Phone test: open Nearby Mosques, tap a mosque, check the route
+  draws on the map and the steps make sense.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run. Phone build is the proof.
