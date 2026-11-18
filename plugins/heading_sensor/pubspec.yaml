@@ -1,0 +1,34 @@
+name: heading_sensor
+description: >-
+  Android compass heading from the rotation-vector sensors with pitch, roll,
+  display-rotation remap, calibration accuracy, angle smoothing and true north.
+version: 0.1.0
+homepage: https://abdeldjalilchougui.biz/
+repository: https://github.com/AbdeldjalilChougui/heading_sensor
+issue_tracker: https://github.com/AbdeldjalilChougui/heading_sensor/issues
+topics:
+  - compass
+  - sensors
+  - heading
+  - magnetometer
+  - qibla
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.abdeldjalilchougui.heading_sensor
+        pluginClass: HeadingSensorPlugin

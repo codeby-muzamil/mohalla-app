@@ -1,0 +1,107 @@
+name: mohalla
+description: "Mohalla — Global Muslim app. Home, full Quran offline (Surah reader + 16-line Pakistani Mushaf), Seekhein (Wudu/Namaz), Qibla 3D, Azan notifications, timezones, AI Dost."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+# All versions pinned to the exact releases verified on pub.dev on 2026-11-16.
+# If `flutter pub get` ever complains about a version, run `flutter pub outdated`
+# and let pub resolve — the code uses only stable, long-lived APIs.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Prayer times (adhan calculation).
+  adhan: 2.0.0+1
+  # Hijri date (device Islamic calendar via this package — NOT a tabular estimate).
+  hijri: 3.0.1
+  # Qibla compass heading from the device rotation-vector sensor
+  # (heading_sensor 0.1.0 — Android TYPE_ROTATION_VECTOR, the same
+  # sensor Android's own compass uses). VENDORED at plugins/heading_sensor:
+  # the published package's android/build.gradle uses the legacy
+  # buildscript + `apply plugin: "kotlin-android"` pattern, which fails
+  # with this app's AGP 9.3.1 / Kotlin 2.4.20 ("this and base files have
+  # different roots", then "does not specify compileSdk"). The vendored
+  # copy has the modern plugins-block build.gradle; sources are the
+  # published 0.1.0 verbatim (MIT). flutter_qiblah 3.2.0 was dropped
+  # 2026-11-16: its compass dependency flutter_compass_v2 1.0.3
+  # (last release Mar 2024) has the same legacy pattern. sensors_plus
+  # 7.1.1 (accelerometer + magnetometer maths) was dropped 2026-11-17
+  # with the heading_sensor switch: nothing else in the app used it.
+  heading_sensor:
+    path: plugins/heading_sensor
+  # Qibla bearing + WMM2025 magnetic declination (pure Dart).
+  qibla_math: 0.1.0
+  # Offline storage (settings, tracker, bookmarks, masjid timings).
+  shared_preferences: 2.5.6
+  # Masjid photo + timings-board photo (gallery + camera).
+  image_picker: 1.2.4
+  # Azan notifications (scheduled, per-prayer toggles).
+  flutter_local_notifications: 23.0.2
+  # Time-zone data for the world-cities feature.
+  timezone: 0.11.2
+  # Gemini AI bot (AI Dost). Key ONLY via --dart-define, never in code.
+  google_generative_ai: 0.4.7
+  # Audio: Azan playback + per-ayah Quran recitation (online).
+  # just_audio 0.10.6 — audioplayers 6.8.1 was dropped 2026-11-16:
+  # its Android plugin audioplayers_android 5.3.0 is incompatible
+  # with AGP 9 (applies the junit5 plugin, declares no compileSdk)
+  # and 5.3.0 is the newest release, so no upgrade path exists.
+  just_audio: 0.10.6
+  # Quran text fetched at build time and bundled as JSON assets (see assets/quran/).
+  http: 1.6.0
+  # Date/time formatting.
+  intl: 0.20.3
+  # State management (single pattern used across the whole app).
+  provider: 6.1.5+1
+  # Open Google Maps links for nearby mosques (no Maps API key needed).
+  url_launcher: 6.3.0
+
+  # ---- Firebase is OPTIONAL — uncomment ONLY after adding
+  # android/app/google-services.json (see BUILD_NOTES.md). ----
+  # firebase_core: ^3.6.0
+  # firebase_auth: ^5.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/quran/
+    - assets/data/
+    - assets/data/manzil.json
+    - assets/data/durood.json
+    - assets/data/morning_evening_azkar.json
+    - assets/azan/
+    - assets/images/
+
+  fonts:
+    - family: Amiri
+      fonts:
+        - asset: assets/fonts/Amiri-Regular.ttf
+        - asset: assets/fonts/Amiri-Bold.ttf
+          weight: 700
+    - family: ScheherazadeNew
+      fonts:
+        - asset: assets/fonts/ScheherazadeNew-Regular.ttf
+        - asset: assets/fonts/ScheherazadeNew-Bold.ttf
+          weight: 700
+    - family: Lateef
+      fonts:
+        - asset: assets/fonts/Lateef-Regular.ttf
+        - asset: assets/fonts/Lateef-Bold.ttf
+          weight: 700
+    # IndoPak Nastaleeq — for the 16-line Pakistani Mushaf reader.
+    # Font: QuranWBW (Al Qalam) via the Nimaz project. QUL layout data
+    # is free to bundle; the FONT asks for written notice before
+    # distribution — see assets/quran/mushaf_16line_README.md.
+    - family: IndoPak
+      fonts:
+        - asset: assets/fonts/IndoPakNastaleeq.ttf

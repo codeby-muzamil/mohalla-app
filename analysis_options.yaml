@@ -1,0 +1,12 @@
+# Recommended lints for the Mohalla Flutter project.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Keep the code simple and readable for a first-time Flutter owner.
+    avoid_print: true
+    prefer_single_quotes: true
