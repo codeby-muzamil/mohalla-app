@@ -211,7 +211,11 @@ class LocationService extends ChangeNotifier {
     double longitude,
   ) async {
     try {
-      final marks = await placemarkFromCoordinates(latitude, longitude);
+      // geocoding 5.x: placemarkFromCoordinates is an instance method
+      // of the Geocoding class, NOT a top-level function any more
+      // (the old top-level API was removed in 5.0.0).
+      final marks = await Geocoding()
+          .placemarkFromCoordinates(latitude, longitude);
       if (marks.isEmpty) return ('', '');
       final m = marks.first;
       final city = m.locality?.isNotEmpty == true
