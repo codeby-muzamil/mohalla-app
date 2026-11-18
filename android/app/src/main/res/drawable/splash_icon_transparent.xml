@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fully transparent icon for the Android 12+ system splash screen.
+     Without an override the system shows the 5B launcher icon here
+     before the Flutter splash — the owner wants only the Flutter 5A
+     splash to show. A transparent icon hides it; the splash is then
+     just the emerald background until Flutter's 5A splash draws. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@android:color/transparent" />
+</shape>

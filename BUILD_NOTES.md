@@ -762,3 +762,18 @@ says exactly what is missing and how to fill it.
 - **Build (owner):** `git pull`, `flutter build apk --release
   --split-per-abi`. Check the splash, login and header logos —
   no sharp corners anywhere now.
+
+## 5B system preloader removed, 5A splash kept (2026-11-19 ~02:07 PKT)
+- **Complaint (owner):** before the Flutter splash (5A, every
+  launch), a 5B preloader also appeared. That was the Android 12+
+  system splash screen: with no override it shows the launcher
+  icon (5B) while the app starts. The 5A Flutter splash must stay.
+- **Fix (Android only, Flutter splash untouched):** NEW
+  drawable/splash_icon_transparent.xml + LaunchTheme (values AND
+  values-night) now sets android:windowSplashScreenAnimatedIcon to
+  it and windowSplashScreenBackground to the emerald
+  launch_background. Launch is now: solid emerald -> Flutter 5A
+  splash -> Home. No icon is shown by the system any more.
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`. Fully close + reopen the app: the 5B icon must
+  NOT appear any more; only the 5A splash, then Home.
