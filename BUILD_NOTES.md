@@ -274,10 +274,14 @@ says exactly what is missing and how to fill it.
   needed" cards — the Home card now also shows an "Open Settings"
   button when location permission is denied forever (asking again
   shows nothing in that state).
-- **Per-ABI APK split:** `android/app/build.gradle.kts` now has a
-  `splits { abi { ... } }` block (armeabi-v7a, arm64-v8a, x86_64;
-  no universal APK). `flutter build apk --release` now produces
-  THREE APKs of ~25 MB each instead of one ~70 MB fat APK:
+- **Per-ABI APK split:** do NOT put a `splits { abi { ... } }` block
+  in `android/app/build.gradle.kts` — it was tried 2026-11-18 and the
+  build FAILED ("ndk abiFilters cannot be present when splits abi
+  filters are set": the Flutter Gradle plugin already sets ndk
+  abiFilters for the fat APK). The block was removed again the same
+  night. Per-ABI APKs come from the build command instead:
+  `flutter build apk --release --split-per-abi` produces THREE APKs
+  of ~25 MB each instead of one ~70 MB fat APK:
   `build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk`,
   `app-arm64-v8a-release.apk`, `app-x86_64-release.apk`.
   Install **app-arm64-v8a-release.apk** on the Tecno SPARK 30 Pro.
