@@ -629,3 +629,37 @@ says exactly what is missing and how to fill it.
   voices and QuranEnc languages is unproven until the phone build.
   Balance checks (raw braces/parens/brackets) on all 9 changed
   files are 0/0/0.
+
+## Phone voice (device TTS) for translations (2026-11-19 ~00:40 PKT)
+- **What:** a "Phone voice" button reads the shown translation aloud
+  with the phone's built-in text-to-speech engine. It is the device
+  voice, NOT a reciter — and it only works for languages the phone
+  has a voice for (Urdu/English work on most phones; a missing
+  voice shows an honest message instead of failing silently).
+- `pubspec.yaml`: + `flutter_tts 4.2.5` (sdk >=3.4.0 <4.0.0, zero
+  third-party deps — verified on pub.dev 2026-11-19).
+- `android/app/src/main/AndroidManifest.xml`: `<queries>` block with
+  `android.intent.action.TTS_SERVICE` (Android 11+ engine discovery).
+- `lib/services/translation_tts_service.dart` (NEW): speaks a list of
+  (text, language) parts in order, one language at a time (locale
+  map for the 51 translation languages + Urdu/English); a generation
+  counter guarantees only one reading runs at a time; any failure
+  returns false, never throws.
+- `lib/screens/quran_reader_screen.dart`: speaker button on every
+  ayah card (next to Play, only when a translation is shown) — reads
+  that ayah's visible translations (Urdu, English, extra language)
+  in order; tap again to stop. Reciter audio and phone voice never
+  overlap; TTS stops when the screen closes.
+- `lib/screens/mushaf_reader_screen.dart`: speaker button in the
+  Tarjuma sheet header — reads the whole page's visible
+  translations, ayah by ayah; stops when the sheet closes or the
+  page audio starts. 16-line page layout untouched.
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter build apk
+  --release --split-per-abi`, install arm64 APK (uninstall old first).
+  Phone test: open a surah, tap the speaker on an ayah (Urdu
+  translation) — the phone reads it; try an extra language (e.g.
+  French) — if the phone has no French voice, the honest message
+  shows. Mushaf → Tarjuma → speaker reads the page.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run; TTS behaviour (engine discovery, per-language
+  voices) is unproven until the phone build.

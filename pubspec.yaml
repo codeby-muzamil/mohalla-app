@@ -78,6 +78,12 @@ dependencies:
   # Google News). xml 7.1.0 needs sdk ^3.13.0 (app: Dart 3.14) —
   # verified on pub.dev 2026-11-19.
   xml: 7.1.0
+  # Phone voice: reads a shown translation aloud with the device's
+  # built-in text-to-speech engine. flutter_tts 4.2.5 needs sdk
+  # >=3.4.0 <4.0.0 (app: Dart 3.14), zero third-party deps —
+  # verified on pub.dev 2026-11-19. Needs the <queries> TTS_SERVICE
+  # block in AndroidManifest.xml (Android 11+ engine discovery).
+  flutter_tts: 4.2.5
 
   # ---- Firebase is OPTIONAL — uncomment ONLY after adding
   # android/app/google-services.json (see BUILD_NOTES.md). ----

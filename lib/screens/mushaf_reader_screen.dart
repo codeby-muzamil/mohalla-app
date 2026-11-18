@@ -9,6 +9,7 @@ import '../services/quran_service.dart';
 import '../services/settings_provider.dart';
 import '../services/translation_audio_cache.dart';
 import '../services/translation_text_service.dart';
+import '../services/translation_tts_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/pattern.dart';
@@ -38,6 +39,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   final AudioPlayer _pagePlayer = AudioPlayer();
   bool _playingPage = false;
 
+  // Phone voice (device TTS): reads the Tarjuma sheet's visible
+  // translations aloud, page by page.
+  final TranslationTtsService _tts = TranslationTtsService();
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +60,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   @override
   void dispose() {
+    _tts.stop();
     _pagePlayer.dispose();
     _controller.dispose();
     super.dispose();
@@ -107,6 +113,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   Future<void> _playPage() async {
+    // Phone voice and reciter audio never overlap.
+    await _tts.stop();
     final ayahs = MushafService.pageAyahs(_page);
     final sources = <AudioSource>[];
     for (final (s, a) in ayahs) {
@@ -126,6 +134,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   void _stopPage() {
+    _tts.stop();
     _pagePlayer.stop();
     setState(() => _playingPage = false);
   }
@@ -230,6 +239,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     var extraLoading = extraId.isNotEmpty;
     var extraLoadStarted = false;
     Map<String, String>? extraTexts;
+    // Phone voice state for the sheet (method scope — the
+    // StatefulBuilder rebuilds, so a builder-local flag would reset).
+    var ttsPlaying = false;
 
     Future<Map<String, String>> loadExtra() async {
       final map = <String, String>{};
@@ -263,6 +275,51 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
               setSheetState(() => extraLoading = false);
             });
           }
+          // Phone voice: reads this page's visible translations
+          // aloud, ayah by ayah. Tap again to stop.
+          Future<void> toggleTts() async {
+            if (ttsPlaying) {
+              await _tts.stop();
+              setSheetState(() => ttsPlaying = false);
+              return;
+            }
+            _stopPage();
+            final parts = <TtsPart>[];
+            for (final (s, a) in ayahs) {
+              if (settings.quranTranslation != 'english') {
+                final t = QuranService.urduAyah(s, a - 1).trim();
+                if (t.isNotEmpty) parts.add(TtsPart(t, 'ur'));
+              }
+              if (settings.quranTranslation == 'both' ||
+                  settings.quranTranslation == 'english') {
+                final t = QuranService.englishAyah(s, a - 1).trim();
+                if (t.isNotEmpty) parts.add(TtsPart(t, 'en'));
+              }
+              final extra = extraTexts?['$s:$a']?.trim() ?? '';
+              if (extra.isNotEmpty) {
+                parts.add(
+                  TtsPart(
+                    extra,
+                    settings.extraTranslation?.languageCode ?? 'en',
+                  ),
+                );
+              }
+            }
+            if (parts.isEmpty) return;
+            setSheetState(() => ttsPlaying = true);
+            final ok = await _tts.speakParts(parts);
+            final stopped = !ttsPlaying;
+            setSheetState(() => ttsPlaying = false);
+            if (!ok && !stopped) {
+              ScaffoldMessenger.of(c).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Phone voice is not available for this language on this phone.',
+                  ),
+                ),
+              );
+            }
+          }
           return DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -283,13 +340,31 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Translation — Page $_page',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: ink,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Translation — Page $_page',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: ttsPlaying
+                        ? 'Stop phone voice'
+                        : 'Listen to translation (phone voice)',
+                    icon: Icon(
+                      ttsPlaying
+                          ? Icons.stop_circle
+                          : Icons.record_voice_over,
+                      color: accent,
+                    ),
+                    onPressed: toggleTts,
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -366,7 +441,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       ),
         },
       ),
-    );
+    ).whenComplete(() => _tts.stop());
   }
 
   @override

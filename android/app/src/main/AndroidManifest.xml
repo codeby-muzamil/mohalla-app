@@ -14,6 +14,14 @@
     <!-- Boot: reschedule Azan after a phone restart (BootReceiver). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- TTS: discover text-to-speech engines (Android 11+). Needed
+         by flutter_tts for the Quran "Phone voice" feature. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:label="Mohalla"
         android:name="${applicationName}"

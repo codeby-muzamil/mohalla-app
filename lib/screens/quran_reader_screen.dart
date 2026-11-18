@@ -10,6 +10,7 @@ import '../services/quran_service.dart';
 import '../services/settings_provider.dart';
 import '../services/translation_audio_cache.dart';
 import '../services/translation_text_service.dart';
+import '../services/translation_tts_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -37,6 +38,11 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
   bool _hifzMode = false;
   final Set<int> _revealed = {};
   bool _audioFailed = false;
+
+  // Phone voice (device TTS): reads the shown translation aloud.
+  // _ttsAyah = ayah index currently being read (null = none).
+  final TranslationTtsService _tts = TranslationTtsService();
+  int? _ttsAyah;
 
   // Offline audio for this surah (per-surah download, see
   // QuranAudioCache). _audioDownloaded null = not checked yet.
@@ -95,6 +101,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
 
   @override
   void dispose() {
+    _tts.stop();
     _player.dispose();
     super.dispose();
   }
@@ -146,9 +153,12 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
   }
 
   Future<void> _playAyah(int ayahIndex) async {
+    // Phone voice and reciter audio never overlap.
+    await _tts.stop();
     setState(() {
       _playingAyah = ayahIndex;
       _audioFailed = false;
+      _ttsAyah = null;
     });
     try {
       await _player.stop();
@@ -166,6 +176,70 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
           _audioFailed = true;
         });
       }
+    }
+  }
+
+  /// The translations visible for one ayah, in display order: Urdu,
+  /// English, then the extra language (if any). This is exactly
+  /// what the phone voice reads aloud.
+  List<TtsPart> _ttsPartsForAyah(int ayahIndex) {
+    final settings = context.read<SettingsProvider>();
+    final parts = <TtsPart>[];
+    final showUrdu = settings.quranTranslation == 'urdu' ||
+        settings.quranTranslation == 'both';
+    final showEnglish = settings.quranTranslation == 'english' ||
+        settings.quranTranslation == 'both';
+    if (showUrdu) {
+      final t =
+          QuranService.urduAyah(widget.surahNumber, ayahIndex).trim();
+      if (t.isNotEmpty) parts.add(TtsPart(t, 'ur'));
+    }
+    if (showEnglish) {
+      final t =
+          QuranService.englishAyah(widget.surahNumber, ayahIndex).trim();
+      if (t.isNotEmpty) parts.add(TtsPart(t, 'en'));
+    }
+    if (_extraAyahs != null && ayahIndex < _extraAyahs!.length) {
+      final t = _extraAyahs![ayahIndex].trim();
+      if (t.isNotEmpty) {
+        parts.add(
+          TtsPart(t, settings.extraTranslation?.languageCode ?? 'en'),
+        );
+      }
+    }
+    return parts;
+  }
+
+  /// Reads one ayah's visible translation(s) aloud with the phone
+  /// voice. Tap again to stop. Shows a message when the phone has
+  /// no voice for the language.
+  Future<void> _speakAyahTranslation(int ayahIndex) async {
+    if (_ttsAyah == ayahIndex) {
+      await _tts.stop();
+      if (mounted) setState(() => _ttsAyah = null);
+      return;
+    }
+    final parts = _ttsPartsForAyah(ayahIndex);
+    if (parts.isEmpty) return;
+    // Stop any current phone-voice reading, then the reciter audio.
+    await _tts.stop();
+    await _player.stop();
+    setState(() {
+      _playingAyah = null;
+      _ttsAyah = ayahIndex;
+    });
+    final ok = await _tts.speakParts(parts);
+    if (!mounted) return;
+    final stoppedByUser = _ttsAyah != ayahIndex;
+    if (_ttsAyah == ayahIndex) setState(() => _ttsAyah = null);
+    if (!ok && !stoppedByUser) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Phone voice is not available for this language on this phone.',
+          ),
+        ),
+      );
     }
   }
 
@@ -968,6 +1042,24 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                             }
                           },
                         ),
+                        if (_ttsPartsForAyah(ayahIndex).isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip:
+                                'Listen to translation (phone voice)',
+                            iconSize: 22,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              _ttsAyah == ayahIndex
+                                  ? Icons.stop_circle
+                                  : Icons.record_voice_over,
+                              color: theme.accent,
+                            ),
+                            onPressed: () =>
+                                _speakAyahTranslation(ayahIndex),
+                          ),
+                        ],
                         const SizedBox(width: 4),
                         IconButton(
                           tooltip: 'Bookmark',
