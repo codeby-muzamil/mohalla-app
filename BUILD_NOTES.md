@@ -709,3 +709,21 @@ says exactly what is missing and how to fill it.
 - **Build (owner):** `git pull`, `flutter build apk --release
   --split-per-abi`. Tap each card: Dua opens Duas & Azkar,
   Hadith opens Hadith Library.
+
+## 5A in-app everywhere + splash on every launch (2026-11-19 ~01:50 PKT)
+- **Icon rule changed (owner):** 5B is LAUNCHER icon only (mipmap).
+  In-app mark is now 5A everywhere: GoldMark default asset changed
+  from assets/images/mohalla_icon.png (5B) to
+  assets/images/mohalla_splash_icon.png (5A) — covers splash, login,
+  header, permissions. The 5B asset file stays in the repo, unused
+  in-app.
+- **Splash on every launch (owner):** the splash used to show only on
+  first run (home was RootScreen once onboarded). Now MohallaApp is
+  stateful with an in-memory `_splashShown` gate: every cold start
+  shows OnboardingFlow splash-only (2.6s, tap to skip), then Home if
+  onboarded, else the full onboarding starting at Permissions
+  (initialStep 1 — no double splash). Background/resume does NOT
+  re-show it; only a fresh start does.
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`. Check: close the app fully, reopen — splash
+  (5A) shows, then Home. Header/login also show 5A now.

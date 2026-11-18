@@ -19,23 +19,50 @@ import '../widgets/pattern.dart';
 ///      in slow circles, Gmail login + Skip (profile stays local-only;
 ///      real Google sign-in needs Firebase — see BUILD_NOTES.md).
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({super.key});
+  /// First page to show (0 = splash). The every-launch splash reuses
+  /// this flow, then the full onboarding continues at step 1.
+  final int initialStep;
+
+  /// When set, the splash (2.6s timer or tap) ends the flow through
+  /// this callback instead of advancing to permissions. Used for the
+  /// every-launch splash.
+  final VoidCallback? onSplashDone;
+
+  const OnboardingFlow({
+    super.key,
+    this.initialStep = 0,
+    this.onSplashDone,
+  });
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
-  final _pageCtrl = PageController();
-  int _step = 0;
+  late final PageController _pageCtrl;
+  late int _step;
   Timer? _splashTimer;
 
   @override
   void initState() {
     super.initState();
-    _splashTimer = Timer(const Duration(milliseconds: 2600), () {
-      if (mounted) _goTo(1);
-    });
+    _step = widget.initialStep;
+    _pageCtrl = PageController(initialPage: widget.initialStep);
+    if (widget.initialStep == 0) {
+      _splashTimer =
+          Timer(const Duration(milliseconds: 2600), _advanceFromSplash);
+    }
+  }
+
+  /// Leave the splash: either finish the every-launch splash through
+  /// the callback, or advance to permissions in the full onboarding.
+  void _advanceFromSplash() {
+    if (!mounted) return;
+    if (widget.onSplashDone != null) {
+      widget.onSplashDone!();
+    } else {
+      _goTo(1);
+    }
   }
 
   @override
@@ -75,7 +102,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         controller: _pageCtrl,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _SplashPage(onTap: () => _goTo(1)),
+          _SplashPage(onTap: _advanceFromSplash),
           _PermissionsPage(
             onNext: () => _goTo(2),
           ),
@@ -90,26 +117,25 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 }
 
-/// App icon mark (5B refined-flat mosque, gold on emerald).
-/// Uses the launcher-icon artwork (assets/images/mohalla_icon.png)
-/// in a ROUNDED SQUARE — never clipped to a circle. The circle clip cut
-/// off the minarets/dome (the artwork nearly fills the square source), so
-/// the icon looked cut on the splash, login and header. The old version
-/// drew a text 'M' in a gold circle, which is why the app showed a bare
-/// letter everywhere the mark is used.
-/// The Splash screen passes the 5A 3D artwork instead
-/// (assets/images/mohalla_splash_icon.png) via [asset]; everywhere else
-/// shows the 5B mark (header, login, permissions).
+/// App icon mark (5A 3D artwork, gold on emerald).
+/// 5A is the in-app mark everywhere (splash, login, header,
+/// permissions). 5B (refined-flat) is the LAUNCHER icon only — it lives
+/// in the mipmap folders, not in the app's screens.
+/// Shown in a ROUNDED SQUARE — never clipped to a circle. The circle
+/// clip cut off the minarets/dome (the artwork nearly fills the square
+/// source), so the icon looked cut on the splash, login and header.
+/// The old version drew a text 'M' in a gold circle, which is why the
+/// app showed a bare letter everywhere the mark is used.
 class GoldMark extends StatelessWidget {
   final double size;
 
-  /// Icon artwork to show. Defaults to the 5B launcher mark.
+  /// Icon artwork to show. Defaults to the 5A 3D artwork.
   final String asset;
 
   const GoldMark({
     super.key,
     this.size = 120,
-    this.asset = 'assets/images/mohalla_icon.png',
+    this.asset = 'assets/images/mohalla_splash_icon.png',
   });
 
   @override

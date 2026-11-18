@@ -67,8 +67,18 @@ Future<void> main() async {
   );
 }
 
-class MohallaApp extends StatelessWidget {
+class MohallaApp extends StatefulWidget {
   const MohallaApp({super.key});
+
+  @override
+  State<MohallaApp> createState() => _MohallaAppState();
+}
+
+class _MohallaAppState extends State<MohallaApp> {
+  /// Splash shows on EVERY cold start, not just the first run: false
+  /// until the launch splash finishes, then the real home. In-memory
+  /// only — a fresh app start always shows the splash again.
+  bool _splashShown = false;
 
   @override
   Widget build(BuildContext context) {
@@ -89,9 +99,13 @@ class MohallaApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: settings.onboarded
-          ? const RootScreen()
-          : const OnboardingFlow(),
+      home: !_splashShown
+          ? OnboardingFlow(
+              onSplashDone: () => setState(() => _splashShown = true),
+            )
+          : settings.onboarded
+              ? const RootScreen()
+              : const OnboardingFlow(initialStep: 1),
     );
   }
 }
