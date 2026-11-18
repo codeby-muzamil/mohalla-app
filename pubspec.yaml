@@ -74,6 +74,10 @@ dependencies:
   # 0.10.1 needs intl >=0.15.0 <1.0.0 (app intl is 0.20.3).
   flutter_map: 8.3.2
   latlong2: 0.10.1
+  # RSS parsing for worldwide Islamic news (IQNA, Al Jazeera,
+  # Google News). xml 7.1.0 needs sdk ^3.13.0 (app: Dart 3.14) —
+  # verified on pub.dev 2026-11-19.
+  xml: 7.1.0
 
   # ---- Firebase is OPTIONAL — uncomment ONLY after adding
   # android/app/google-services.json (see BUILD_NOTES.md). ----

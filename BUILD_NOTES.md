@@ -486,3 +486,40 @@ says exactly what is missing and how to fill it.
   draws on the map and the steps make sense.
 - **Not verified here:** no Flutter toolchain — `flutter analyze` /
   build NOT run. Phone build is the proof.
+
+## Live worldwide Islamic news + daily refresh (2026-11-19 ~00:15 PKT)
+- **Why:** the News screen only showed Mohalla announcements/guides.
+  Now it shows real worldwide Islamic news, refreshed daily.
+- `pubspec.yaml`: + `xml 7.1.0` (RSS parsing; needs sdk ^3.13.0 —
+  app Dart is 3.14; verified on pub.dev 2026-11-19).
+- `lib/services/news_service.dart` (NEW): free public RSS feeds, no
+  key — IQNA (dedicated Islamic news agency, verified live
+  2026-11-19), Al Jazeera (general feed, filtered to Islamic
+  topics, verified live 2026-11-19), Google News search for "Islam".
+  One dead feed never blocks the others. Daily refresh: the list is
+  cached on the phone and re-fetched only when older than 24 hours;
+  pull-to-refresh / the refresh button forces a fresh fetch. Offline
+  = last saved list (or the bundled stories, with an honest note).
+- `lib/screens/news_screen.dart`: live list (source pill + time ago
+  + thumbnail, tap opens the article in the browser), source filter
+  chips, "Updated …" status bar. The bundled news.json stories are
+  now only the offline fallback; NewsDetailScreen kept for them.
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter build apk
+  --release --split-per-abi`, install arm64 APK (uninstall old first).
+  Phone test: open Islamic News — worldwide stories should appear
+  with today's dates; pull down to refresh.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run. Phone build is the proof.
+
+## Hijri calendar auto-update (2026-11-19 ~00:15 PKT)
+- The Hijri date was computed once in Home's initState: if the app
+  stayed open past midnight, the header kept yesterday's Hijri date.
+- `lib/screens/home_screen.dart`: the 1-second tick now detects a
+  day change and re-runs `_updateHijri()` (Hijri + Gregorian header
+  dates roll over by themselves).
+- `lib/screens/calendar_screen.dart`: a 1-minute timer rebuilds the
+  screen when the day rolls over, so the "today" highlight and the
+  upcoming-events list move on their own. Opening the screen always
+  shows the current month (state is rebuilt on open).
+- The Hijri date itself comes from the `hijri` package (device
+  Islamic calendar) ± the Settings adjustment (-1/0/+1 day).

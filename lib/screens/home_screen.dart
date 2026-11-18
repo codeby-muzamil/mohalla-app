@@ -127,6 +127,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_noLocation) return;
     try {
       final now = DateTime.now();
+      // Past midnight with the app still open: the Hijri and
+      // Gregorian header dates must roll over too (they are only
+      // computed in _updateHijri, not in _refreshTimes).
+      if (_now != null &&
+          (now.day != _now!.day ||
+              now.month != _now!.month ||
+              now.year != _now!.year)) {
+        _updateHijri();
+      }
       if (_times == null || now.minute != _lastMinute) {
         _refreshTimes(now: now);
       } else {

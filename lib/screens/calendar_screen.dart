@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +22,34 @@ class HijriCalendarScreen extends StatefulWidget {
 
 class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
+
+  /// The day the screen last built for — a 1-minute timer rebuilds
+  /// the screen when the day rolls over (app left open past
+  /// midnight), so the "today" highlight and the upcoming-events
+  /// list move on their own.
+  DateTime _todayKey = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
+  Timer? _dayTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _dayTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final key = DateTime(now.year, now.month, now.day);
+      if (key != _todayKey) setState(() => _todayKey = key);
+    });
+  }
+
+  @override
+  void dispose() {
+    _dayTimer?.cancel();
+    super.dispose();
+  }
 
   static const _hijriMonths = [
     'Muharram',
