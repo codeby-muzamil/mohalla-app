@@ -79,11 +79,15 @@ dependencies:
   # verified on pub.dev 2026-11-19.
   xml: 7.1.0
   # Phone voice: reads a shown translation aloud with the device's
-  # built-in text-to-speech engine. flutter_tts 4.2.5 needs sdk
-  # >=3.4.0 <4.0.0 (app: Dart 3.14), zero third-party deps —
-  # verified on pub.dev 2026-11-19. Needs the <queries> TTS_SERVICE
-  # block in AndroidManifest.xml (Android 11+ engine discovery).
-  flutter_tts: 4.2.5
+  # built-in text-to-speech engine. Hosted flutter_tts 4.2.5 does NOT
+  # build with this app's toolchain (AGP 9.3.1 / Gradle 9.5.0 /
+  # Kotlin 2.4.20): its android/build.gradle pins AGP 8.13.0 +
+  # kotlin-gradle-plugin 2.2.20 via a legacy buildscript, which fails
+  # with "different roots" + "does not specify compileSdk" — so the
+  # plugin is VENDORED at plugins/flutter_tts with a modern
+  # build.gradle (same fix as heading_sensor). Path dependency:
+  flutter_tts:
+    path: plugins/flutter_tts
 
   # ---- Firebase is OPTIONAL — uncomment ONLY after adding
   # android/app/google-services.json (see BUILD_NOTES.md). ----

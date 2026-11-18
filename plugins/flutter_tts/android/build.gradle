@@ -1,0 +1,66 @@
+// flutter_tts 4.2.5 — VENDORED into the Mohalla project (plugins/flutter_tts).
+// WHY VENDORED: the published package's android/build.gradle uses the legacy
+// `buildscript { classpath 'com.android.tools.build:gradle:8.13.0' +
+// classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20" }`
+// + `apply plugin: "kotlin-android"` pattern. With this app's toolchain
+// (AGP 9.3.1 / Gradle 9.5.0 / Kotlin 2.4.20) that fails with
+// "Failed to apply plugin 'kotlin-android' — this and base files have
+// different roots" (the plugin's build file lives in the pub cache, outside
+// the project), and the android block never runs, so AGP also reports
+// "does not specify compileSdk". It ALSO forces a download of
+// kotlin-gradle-plugin 2.2.20 from dl.google.com, which fails when the
+// network/VPN blocks it. Same failure, same fix as heading_sensor
+// (plugins/heading_sensor/android/build.gradle).
+//
+// WHY NO kotlin-android HERE: AGP 9 has BUILT-IN Kotlin — applying the
+// kotlin-android plugin (KGP) fails outright ("The 'org.jetbrains.kotlin.android'
+// plugin is no longer required for Kotlin support since AGP 9.0").
+// See https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin
+//
+// WHY NO flutter-gradle-plugin HERE: the app's own flutter-gradle-plugin
+// (applied in android/app/build.gradle.kts) already registers the `flutter`
+// extension on every plugin project, so applying it again here fails with
+// "Cannot add extension with name 'flutter', as there is an extension
+// already registered with that name" (Flutter 3.50 source:
+// packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt —
+// project.extensions.create("flutter", ...) — and the embedding is added
+// to plugin projects as an API dependency by the same tooling, which is
+// why this module's io.flutter.* imports resolve without declaring it).
+// PROOF: url_launcher_android 6.3.33 — a dependency of this app — uses
+// exactly this shape: `id "com.android.library"` only, and
+// `compileSdk = flutter.compileSdkVersion`.
+//
+// Original source: https://github.com/dlutton/flutter_tts (4.2.5)
+// (MIT licence — see LICENSE in this folder). Only this build file is
+// changed; all Dart/Kotlin/Swift/C++ sources are the published 4.2.5 verbatim.
+
+plugins {
+    id "com.android.library"
+}
+
+android {
+    namespace = "com.eyedeadevelopment.fluttertts"
+
+    // Tracks the app's compileSdk (37) via the `flutter` extension, which
+    // the app's flutter-gradle-plugin registers on every plugin project.
+    compileSdk = flutter.compileSdkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = flutter.minSdkVersion
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}

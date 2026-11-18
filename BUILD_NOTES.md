@@ -663,3 +663,29 @@ says exactly what is missing and how to fill it.
 - **Not verified here:** no Flutter toolchain — `flutter analyze` /
   build NOT run; TTS behaviour (engine discovery, per-language
   voices) is unproven until the phone build.
+
+## flutter_tts build fix — plugin VENDORED (2026-11-19 ~01:00 PKT)
+- **Build error (owner's machine):** `flutter build apk` failed
+  configuring project ':flutter_tts': (1) could not download
+  kotlin-gradle-plugin 2.2.20 from dl.google.com (network/VPN), and
+  (2) "Failed to apply plugin 'kotlin-android' — this and base files
+  have different roots" + "does not specify compileSdk". Root cause:
+  hosted flutter_tts 4.2.5 (the latest — verified on pub.dev
+  2026-11-19, no newer version) pins AGP 8.13.0 + Kotlin 2.2.20 +
+  Java 11 via a legacy buildscript, while the app uses AGP 9.3.1 /
+  Gradle 9.5.0 / Kotlin 2.4.20 / Java 17. Same failure, same fix as
+  heading_sensor (see its build.gradle header for the full reasoning).
+- **Fix:** flutter_tts 4.2.5 vendored at `plugins/flutter_tts/`
+  (published sources verbatim — verified byte-identical to the
+  pub.dev tarball, sha256 ce5eb209…; only `android/build.gradle`
+  replaced with the modern shape: `com.android.library` only, no
+  kotlin-android, `compileSdk = flutter.compileSdkVersion`,
+  Java/Kotlin 17). App pubspec now uses `path: plugins/flutter_tts`.
+  No Kotlin 2.2.20 download is needed any more, so the dl.google.com
+  failure goes away too.
+- **Build (owner):** `git pull`, `flutter clean`, `flutter pub get`,
+  `flutter build apk --release --split-per-abi`, install arm64 APK
+  (uninstall old first). `flutter clean` matters this time — the
+  dependency changed from hosted to a local path.
+- **Not verified here:** no Flutter toolchain — `flutter analyze` /
+  build NOT run; the vendored build is unproven until the phone build.
