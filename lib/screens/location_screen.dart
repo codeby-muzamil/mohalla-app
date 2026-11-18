@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/prayer_service.dart';
 import '../services/settings_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
 /// My Location: everything about the phone's GPS location — the

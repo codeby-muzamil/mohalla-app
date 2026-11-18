@@ -132,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         const SectionTitle(title: 'Azan notifications'),
-        const Text(
+        Text(
           'When prayer time comes, an Azan notification and sound. '
           'The phone will ask permission the first time you turn it on '
           '(Android 13+ notifications, Android 12+ exact alarms).',
@@ -199,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         const SectionTitle(title: 'Prayer calculation'),
-        const Text(
+        Text(
           'Calculation method and Asr time affect all prayer times, '
           'the countdown and Azan. Pick the method used where you live.',
           style: TextStyle(fontSize: 12, color: muted),
@@ -257,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         const SectionTitle(title: 'Hijri date adjustment'),
-        const Text(
+        Text(
           'The Hijri date comes from the phone\'s Islamic calendar. '
           'Moon sighting can shift a date by a day — if your mosque\'s '
           'date differs, adjust it here. It changes the date on Home '
@@ -491,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Paste your own Gemini API key to connect AI Dost. '
                   'It is stored on this phone only and is never '
                   'uploaded. Without a key the bot answers offline. '
@@ -592,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Version 0.1.0 (prototype) • Mohalla • com.mohalla.app',
           style: TextStyle(fontSize: 12, color: muted),
         ),
