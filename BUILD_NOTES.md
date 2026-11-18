@@ -697,3 +697,15 @@ says exactly what is missing and how to fill it.
   semicolon. Fix: line 441 `),` -> `);`. Nothing else changed.
 - **Build (owner):** `git pull`, `flutter build apk --release
   --split-per-abi` (`flutter pub get`/`clean` not needed this time).
+
+## Today's Dua / Hadith buttons fixed (2026-11-19 ~01:42 PKT)
+- **Bug (owner's phone):** Home "Today's Deen" — "Today's Verse"
+  worked, but "Today's Dua" and "Today's Hadith" did nothing.
+  Cause: both cards had an empty `onTap: () {}` — never wired.
+- **Fix (home_screen.dart only):** `_DailyCards` now also takes
+  `onOpenTool` (already wired on HomeScreen to main's `_openTool`).
+  Dua card -> `onOpenTool('duas')`, Hadith card ->
+  `onOpenTool('hadith')` — same route the Zyada tools use.
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`. Tap each card: Dua opens Duas & Azkar,
+  Hadith opens Hadith Library.

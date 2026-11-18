@@ -894,7 +894,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // ---- Daily rotation cards ----
         const _HomeSectionTitle(title: "Today's Deen"),
-        _DailyCards(onOpenAyah: widget.onOpenAyah),
+        _DailyCards(
+          onOpenAyah: widget.onOpenAyah,
+          onOpenTool: widget.onOpenTool,
+        ),
       ],
     );
   }
@@ -1076,8 +1079,9 @@ class _MasjidPlaceholder extends StatelessWidget {
 /// Home rebuild — the countdown ticks every second).
 class _DailyCards extends StatefulWidget {
   final void Function(int surah, int ayah) onOpenAyah;
+  final void Function(String key) onOpenTool;
 
-  const _DailyCards({required this.onOpenAyah});
+  const _DailyCards({required this.onOpenAyah, required this.onOpenTool});
 
   @override
   State<_DailyCards> createState() => _DailyCardsState();
@@ -1208,7 +1212,7 @@ class _DailyCardsState extends State<_DailyCards> {
             const SizedBox(height: 8),
             if (dua != null)
               PressableCard(
-                onTap: () {},
+                onTap: () => widget.onOpenTool('duas'),
                 child: Row(
                   children: [
                     Container(
@@ -1250,7 +1254,7 @@ class _DailyCardsState extends State<_DailyCards> {
             if (dua != null) const SizedBox(height: 8),
             if (hadith != null)
               PressableCard(
-                onTap: () {},
+                onTap: () => widget.onOpenTool('hadith'),
                 child: Row(
                   children: [
                     Container(
