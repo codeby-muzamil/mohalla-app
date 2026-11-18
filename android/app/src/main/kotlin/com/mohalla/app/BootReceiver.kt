@@ -35,17 +35,17 @@ class BootReceiver : BroadcastReceiver() {
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
                     engine.destroy()
-                } catch (_) {
+                } catch (e: Exception) {
                 }
                 try {
                     pending.finish()
-                } catch (_) {
+                } catch (e: Exception) {
                 }
             }, 20000)
-        } catch (_) {
+        } catch (e: Exception) {
             try {
                 pending.finish()
-            } catch (_) {
+            } catch (e: Exception) {
             }
         }
     }

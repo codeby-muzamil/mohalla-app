@@ -202,6 +202,11 @@ says exactly what is missing and how to fill it.
   BOOT_COMPLETED until it is opened once). Note: this is the ONE part
   of this batch that cannot be proven without a real restart — it was
   not verified here (no toolchain on this machine).
+- **Fix 2026-11-18 (build failed):** the first version used Dart-style
+  `catch (_)` in this Kotlin file — Kotlin does not accept that
+  ("An explicit type is required on a value parameter"). All four
+  sites are now `catch (e: Exception)`. Rule: in `.kt` files always
+  write the exception type (`catch (e: Exception)`), never bare `_`.
 - **Not verified here:** no Flutter toolchain on this machine, so
   `flutter analyze` / build were NOT run. The owner's build is the proof.
 
