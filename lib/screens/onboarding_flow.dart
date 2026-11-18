@@ -164,17 +164,23 @@ class GoldMark extends StatelessWidget {
         // so the full logo shows with a margin — never edge to edge.
         child: Padding(
           padding: EdgeInsets.all(size * 0.08),
-          child: Image.asset(
-            asset,
-            fit: BoxFit.contain,
-            // If the asset ever fails to bundle, show a mosque mark instead
-            // of an empty box — the splash must never die on a missing image.
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: AppTheme.emerald,
-              child: Icon(
-                Icons.mosque,
-                color: AppTheme.gold,
-                size: size * 0.55,
+          // The artwork itself is a solid square: without this inner
+          // clip its sharp 90-degree corners show inside the rounded
+          // frame. Slight rounding on all 4 sides (12%).
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.12),
+            child: Image.asset(
+              asset,
+              fit: BoxFit.contain,
+              // If the asset ever fails to bundle, show a mosque mark instead
+              // of an empty box — the splash must never die on a missing image.
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: AppTheme.emerald,
+                child: Icon(
+                  Icons.mosque,
+                  color: AppTheme.gold,
+                  size: size * 0.55,
+                ),
               ),
             ),
           ),

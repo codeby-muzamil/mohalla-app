@@ -749,3 +749,16 @@ says exactly what is missing and how to fill it.
   --split-per-abi`. Test the speaker button on an ayah + the
   Mushaf Tarjuma sheet: Urdu + English should both sound male
   and deep now.
+
+## Logo corners rounded (2026-11-19 ~02:05 PKT)
+- **Complaint (owner):** wherever the logo shows, its corners were
+  visible (sharp). Cause: the GoldMark frame was already rounded,
+  but the artwork itself is a solid square — its sharp 90-degree
+  corners showed inside the rounded frame.
+- **Fix (onboarding_flow.dart, GoldMark only — every in-app logo
+  goes through it: splash, login, header, permissions):** the
+  Image is now wrapped in an inner ClipRRect, radius 12% — slight
+  rounding on all 4 sides. Outer frame stays 24%.
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`. Check the splash, login and header logos —
+  no sharp corners anywhere now.
