@@ -689,3 +689,11 @@ says exactly what is missing and how to fill it.
   dependency changed from hosted to a local path.
 - **Not verified here:** no Flutter toolchain — `flutter analyze` /
   build NOT run; the vendored build is unproven until the phone build.
+
+## Mushaf TTS semicolon fix (2026-11-19 ~01:14 PKT)
+- **Build error:** `mushaf_reader_screen.dart:441` — "Expected ';' after
+  this". Cause: `return DraggableScrollableSheet(...)` in
+  `_showTranslations` ended with `),` instead of `);` — one missing
+  semicolon. Fix: line 441 `),` -> `);`. Nothing else changed.
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi` (`flutter pub get`/`clean` not needed this time).

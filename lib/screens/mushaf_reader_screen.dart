@@ -438,7 +438,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ],
           ),
         ),
-      ),
+      );
         },
       ),
     ).whenComplete(() => _tts.stop());
