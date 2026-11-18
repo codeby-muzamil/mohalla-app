@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
 /// Sunnat o Shariah: day-to-day Sunnahs and basic Sharia guidance.
@@ -44,8 +45,11 @@ class SunnahScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         const SectionTitle(
           title: 'Sunnah & Shariah',
@@ -53,16 +57,19 @@ class SunnahScreen extends StatelessWidget {
         ),
         for (final section in _sections)
           Card(
+            margin: const EdgeInsets.only(bottom: 12),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    section['title'] as String,
-                    style: const TextStyle(
+                    (section['title'] as String).toUpperCase(),
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 13,
+                      letterSpacing: 1.1,
+                      color: gold,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -72,10 +79,10 @@ class SunnahScreen extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.check_circle,
                             size: 18,
-                            color: Colors.green,
+                            color: accent,
                           ),
                           const SizedBox(width: 8),
                           Expanded(child: Text(item)),

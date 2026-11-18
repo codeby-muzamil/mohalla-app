@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:provider/provider.dart';
 
+import '../services/settings_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Hijri Calendar: monthly grid (Gregorian dates with the Hijri date
@@ -52,12 +54,17 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
     '12-10': 'Eid-ul-Adha',
   };
 
-  List<Map<String, dynamic>> _upcomingEvents() {
+  /// Upcoming events for the next ~370 days. [shift] is the user's
+  /// Hijri adjustment (-1 / 0 / +1): the Hijri date is read from the
+  /// Gregorian date shifted by that many days, so an event that the
+  /// calendar puts one day earlier/later shows on the right day.
+  /// [inDays] is still the days until that (shifted) date.
+  List<Map<String, dynamic>> _upcomingEvents(int shift) {
     final result = <Map<String, dynamic>>[];
     final today = DateTime.now();
     for (var d = 0; d < 370 && result.length < 6; d++) {
       final date = today.add(Duration(days: d));
-      final h = HijriCalendar.fromDate(date);
+      final h = HijriCalendar.fromDate(date.add(Duration(days: shift)));
       final key = '${h.hMonth}-${h.hDay}';
       final name = _events[key];
       if (name != null) {
@@ -74,19 +81,40 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
         DateTime(_month.year, _month.month + 1, 0).day;
     final startWeekday = firstDay.weekday % 7; // Sunday = 0
     final today = DateTime.now();
-    final upcoming = _upcomingEvents();
+    // The user's Hijri adjustment from Settings (-1 / 0 / +1).
+    final hijriShift =
+        context.watch<SettingsProvider>().hijriAdjustment;
+    final upcoming = _upcomingEvents(hijriShift);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final card = isDark ? AppTheme.nightCard : AppTheme.cardLight;
+    final cardLine =
+        isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () => setState(() {
-                _month = DateTime(_month.year, _month.month - 1, 1);
-              }),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: card,
+                border: Border.all(color: cardLine, width: 1),
+                boxShadow: [AppTheme.cardShadow(isDark)],
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 22,
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => setState(() {
+                  _month = DateTime(_month.year, _month.month - 1, 1);
+                }),
+              ),
             ),
             Text(
               '${_month.month}/${_month.year}',
@@ -95,32 +123,47 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: () => setState(() {
-                _month = DateTime(_month.year, _month.month + 1, 1);
-              }),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: card,
+                border: Border.all(color: cardLine, width: 1),
+                boxShadow: [AppTheme.cardShadow(isDark)],
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 22,
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => setState(() {
+                  _month = DateTime(_month.year, _month.month + 1, 1);
+                }),
+              ),
             ),
           ],
         ),
-        const Text(
+        Text(
           'Hijri dates come from the phone\'s Islamic calendar — '
           'moon sighting may shift a date by a day; '
-          'confirm with your mosque.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          'confirm with your mosque. If your mosque\'s date differs, '
+          'adjust it in Settings → Hijri date adjustment.',
+          style: TextStyle(fontSize: 12, color: muted),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: const [
-            Text('Su'),
-            Text('Mo'),
-            Text('Tu'),
-            Text('We'),
-            Text('Th'),
-            Text('Fr'),
-            Text('Sa'),
+          children: [
+            for (final d in const ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'])
+              Text(
+                d,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: muted,
+                ),
+              ),
           ],
         ),
         GridView.builder(
@@ -137,7 +180,9 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
             if (i < startWeekday) return const SizedBox.shrink();
             final day = i - startWeekday + 1;
             final date = DateTime(_month.year, _month.month, day);
-            final h = HijriCalendar.fromDate(date);
+            final h = HijriCalendar.fromDate(
+              date.add(Duration(days: hijriShift)),
+            );
             final isToday = date.year == today.year &&
                 date.month == today.month &&
                 date.day == today.day;
@@ -146,14 +191,14 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
               margin: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: isToday
-                    ? AppTheme.gold.withValues(alpha: 0.35)
+                    ? gold.withValues(alpha: 0.35)
                     : event != null
                         ? AppTheme.emerald.withValues(alpha: 0.15)
-                        : Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(8),
+                        : card,
+                borderRadius: BorderRadius.circular(12),
                 border: isToday
-                    ? Border.all(color: AppTheme.gold, width: 2)
-                    : null,
+                    ? Border.all(color: gold, width: 2)
+                    : Border.all(color: cardLine, width: 1),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -167,26 +212,34 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 10),
+                    style: TextStyle(fontSize: 10, color: muted),
                   ),
                   if (event != null)
-                    const Icon(Icons.star,
-                        size: 12, color: AppTheme.gold),
+                    Icon(Icons.star, size: 12, color: gold),
                 ],
               ),
             );
           },
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Upcoming Islamic dates',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Text(
+          'UPCOMING ISLAMIC DATES',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.1,
+            color: gold,
+          ),
         ),
         const SizedBox(height: 8),
         for (final e in upcoming)
           Card(
+            margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
-              leading: const Icon(Icons.event, color: AppTheme.emerald),
+              leading: Icon(
+                Icons.event,
+                color: isDark ? AppTheme.goldDark : AppTheme.emerald,
+              ),
               title: Text(e['name'] as String),
               subtitle: Text(
                 '${(e['hijri'] as HijriCalendar).hDay} '
@@ -195,7 +248,10 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen> {
               ),
               trailing: Text(
                 e['inDays'] == 0 ? 'Today' : '${e['inDays']} days',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: gold,
+                ),
               ),
             ),
           ),

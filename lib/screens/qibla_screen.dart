@@ -7,19 +7,21 @@ import 'package:heading_sensor/heading_sensor.dart';
 import 'package:qibla_math/qibla_math.dart'
     hide normalizeDegrees, signedAngleDifference;
 
+import '../services/location_service.dart';
 import '../services/prayer_service.dart';
-import '../services/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
+import 'location_screen.dart';
 
 /// Qibla Compass (3D look): a perspective-tilted compass dial that
 /// rotates with the phone's rotation-vector sensor (heading_sensor —
 /// Android's TYPE_ROTATION_VECTOR, the same sensor Android's own
 /// compass uses), a 3D-style Kaaba in the centre, and the Kaaba
 /// turning GREEN within ~5 degrees of the Qibla bearing. Sensor-only
-/// (no manual mode). Bearing + distance are computed from the selected
-/// city's coordinates (great-circle) — never hardcoded. The heading
+/// (no manual mode). Bearing + distance are computed from the phone's
+/// GPS coordinates (great-circle) — never hardcoded. The heading
 /// is true north: magnetic declination comes from qibla_math
-/// (WMM2025) for the selected city.
+/// (WMM2025) for the GPS location.
 /// HONEST CAVEAT: heading_sensor 0.1.0 has not yet been tested on a
 /// physical phone (emulator + unit tests only, per its author), so the
 /// live status line and the red no-sensor card stay on screen — if
@@ -72,22 +74,26 @@ class _QiblaScreenState extends State<QiblaScreen> {
   }
 
   /// Start the heading stream. Magnetic declination (WMM2025,
-  /// qibla_math) is computed ONCE per city and handed to
+  /// qibla_math) is computed ONCE per GPS location and handed to
   /// heading_sensor, so the heading it reports is true north,
   /// matching the true-north Qibla bearing. If the model cannot
   /// run (date outside the WMM2025 validity period 2025-2030),
   /// the provider returns null and the heading stays magnetic.
+  /// Without a GPS location yet, declination is skipped (the
+  /// compass still runs; bearing needs the location too).
   Future<void> _startCompass() async {
-    final city = context.read<SettingsProvider>().city;
+    final coords = context.read<LocationService>().current;
     double? declination;
     try {
-      declination = WorldMagneticModel.wmm2025
-          .calculate(
-            latitude: city.latitude,
-            longitude: city.longitude,
-            decimalYear: decimalYear(DateTime.now()),
-          )
-          .declination;
+      if (coords != null) {
+        declination = WorldMagneticModel.wmm2025
+            .calculate(
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              decimalYear: decimalYear(DateTime.now()),
+            )
+            .declination;
+      }
     } catch (_) {
       declination = null;
     }
@@ -152,13 +158,98 @@ class _QiblaScreenState extends State<QiblaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
-    final city = settings.city;
-    final bearing = PrayerService.qiblaBearing(city);
-    final distance = PrayerService.distanceToMakkahKm(city);
+    final location = context.watch<LocationService>();
+    final coords = location.current;
+    // Demo tokens, both modes (visual only — no logic touched).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    // No GPS location yet: the bearing cannot be computed — show a
+    // visible location-required card, never a compass pointing
+    // nowhere.
+    if (coords == null) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.location_off,
+                    size: 44,
+                    color: accent,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Location is needed for the Qibla direction',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    location.message.isNotEmpty
+                        ? location.message
+                        : 'Allow location permission so the app can work out the Qibla direction from where you are.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: muted,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GoldButton(
+                        label: 'Enable location',
+                        icon: Icons.my_location,
+                        onPressed: () => location.refresh(),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(
+                                  title: const Text('My Location'),
+                                ),
+                                body: const LocationScreen(),
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('My Location'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final bearing = PrayerService.qiblaBearing(
+      coords.latitude,
+      coords.longitude,
+    );
+    final distance = PrayerService.distanceToMakkahKm(
+      coords.latitude,
+      coords.longitude,
+    );
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         Card(
           child: Padding(
@@ -166,22 +257,23 @@ class _QiblaScreenState extends State<QiblaScreen> {
             child: Column(
               children: [
                 Text(
-                  'Qibla from ${city.name}: ${bearing.toStringAsFixed(0)}°',
-                  style: const TextStyle(
+                  'Qibla from ${coords.displayName}: ${bearing.toStringAsFixed(0)}°',
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: ink,
                   ),
                 ),
                 Text(
                   'Distance to Makkah: ${distance.toStringAsFixed(0)} km',
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(color: muted),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Rotate the phone — when the Kaaba turns green, you are '
                   'facing the Qibla.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
               ],
             ),
@@ -217,7 +309,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
               'Accuracy: $_accuracyName  •  '
               '$_sourceName',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: muted),
             );
           },
         ),
@@ -228,45 +320,184 @@ class _QiblaScreenState extends State<QiblaScreen> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.red.shade200),
+              color: isDark
+                  ? const Color(0xFF3A1512)
+                  : Colors.red.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF7A2E2E)
+                    : Colors.red.shade200,
+              ),
             ),
-            child: const Text(
+            child: Text(
               'No reading from the compass sensor — this phone has no '
               'magnetometer or the sensor is off.\n'
               'Tip: move the phone in a figure-8 motion 2-3 times to '
               'calibrate the compass.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: ink),
             ),
           ),
+        // No compass sensor, no live dial — but the bearing from the
+        // GPS location is still correct, so show it as a static
+        // North-up direction the user can follow by hand.
+        if (_sensorUnavailable || _noSensorData)
+          _QiblaFallbackCard(bearing: bearing),
         if (_needsCalibration && !_sensorUnavailable && !_noSensorData)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber),
+              color: isDark
+                  ? const Color(0xFF3A2E0A)
+                  : Colors.amber.shade100,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? gold : Colors.amber,
+              ),
             ),
-            child: const Text(
+            child: Text(
               'Compass needs calibration — move the phone in a figure-8 '
               'motion 2-3 times, away from metal and magnets.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: ink),
             ),
           ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Note: the emulator has no compass sensor. On a real phone it '
           'runs on the rotation-vector sensor; the status line above shows whether the '
           'sensor is reporting.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: muted),
         ),
       ],
+    );
+  }
+}
+
+/// Compass point name for a bearing (8-point: North, North-East,
+/// East, ...). 264° → 'West'.
+String _compassPointName(double bearing) {
+  const points = [
+    'North',
+    'North-East',
+    'East',
+    'South-East',
+    'South',
+    'South-West',
+    'West',
+    'North-West',
+  ];
+  final index = (((bearing + 22.5) % 360) / 45).floor();
+  return points[index];
+}
+
+/// Static Qibla direction for phones whose compass sensor does not
+/// report: a North-up mini-dial with the arrow fixed at the Qibla
+/// bearing, the bearing number, and the direction in words. The
+/// sensor logic is untouched — this only renders when the sensor is
+/// already known to be unavailable / silent.
+class _QiblaFallbackCard extends StatelessWidget {
+  final double bearing; // Qibla bearing, degrees from North
+
+  const _QiblaFallbackCard({required this.bearing});
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = _compassPointName(bearing);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              'Qibla direction (no live compass)',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Static North-up dial: N at the top, arrow at the bearing.
+            SizedBox(
+              width: 150,
+              height: 150,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark
+                          ? AppTheme.nightAlt
+                          : const Color(0xFFFDF8E7),
+                      border: Border.all(color: gold, width: 3),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    child: Text(
+                      'N',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: accent,
+                      ),
+                    ),
+                  ),
+                  Transform.rotate(
+                    angle: bearing * math.pi / 180,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 34),
+                        child: Icon(
+                          Icons.navigation,
+                          color: accent,
+                          size: 40,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.mosque,
+                    color: gold,
+                    size: 30,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Face ${bearing.toStringAsFixed(0)}° — $direction',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'The compass sensor is not reporting on this phone, so '
+              'the live dial cannot turn. This bearing is still '
+              'correct for your location — line the N above up with '
+              'real North (use the sun or a landmark), then face '
+              'the arrow.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: muted),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -288,6 +519,14 @@ class _CompassDial extends StatelessWidget {
   Widget build(BuildContext context) {
     // Dial rotates so that "up" is always North relative to the phone.
     final dialRotation = -heading * math.pi / 180;
+    // Colours only — dial geometry (280px, ticks, labels, Kaaba,
+    // aligned-chip position) is untouched, so the Qibla chip stays
+    // clear of the 'W' marker at every heading.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final tickMinor =
+        isDark ? AppTheme.cardLineDark : Colors.brown.shade300;
     return Center(
       child: Transform(
         transform: Matrix4.identity()
@@ -299,17 +538,13 @@ class _CompassDial extends StatelessWidget {
           height: 280,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const RadialGradient(
-              colors: [Color(0xFFFDF8E7), Color(0xFFEADFC2)],
+            gradient: RadialGradient(
+              colors: isDark
+                  ? const [AppTheme.nightCard, AppTheme.nightAlt]
+                  : const [Color(0xFFFDF8E7), Color(0xFFEADFC2)],
             ),
-            border: Border.all(color: AppTheme.gold, width: 4),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 18,
-                offset: Offset(0, 10),
-              ),
-            ],
+            border: Border.all(color: gold, width: 4),
+            boxShadow: [AppTheme.cardShadow(isDark)],
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -329,22 +564,20 @@ class _CompassDial extends StatelessWidget {
                             margin: const EdgeInsets.only(top: 6),
                             width: d % 90 == 0 ? 3 : 1.5,
                             height: d % 90 == 0 ? 16 : 9,
-                            color: d % 90 == 0
-                                ? AppTheme.emerald
-                                : Colors.brown.shade300,
+                            color: d % 90 == 0 ? accent : tickMinor,
                           ),
                         ),
                       ),
                     // Qibla marker on the dial (rotates with the dial).
                     Transform.rotate(
                       angle: bearing * math.pi / 180,
-                      child: const Align(
+                      child: Align(
                         alignment: Alignment.topCenter,
                         child: Padding(
-                          padding: EdgeInsets.only(top: 26),
+                          padding: const EdgeInsets.only(top: 26),
                           child: Icon(
                             Icons.navigation,
-                            color: AppTheme.emerald,
+                            color: accent,
                             size: 26,
                           ),
                         ),
@@ -358,7 +591,7 @@ class _CompassDial extends StatelessWidget {
               // The Kaaba in the middle.
               _KaabaBox(aligned: aligned),
               if (aligned)
-                const Positioned(
+                Positioned(
                   bottom: 18,
                   left: 40,
                   right: 40,
@@ -367,7 +600,9 @@ class _CompassDial extends StatelessWidget {
                     child: Text(
                       'Qibla found ✓',
                       style: TextStyle(
-                        color: Colors.green,
+                        color: isDark
+                            ? Colors.greenAccent
+                            : Colors.green.shade700,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -387,12 +622,13 @@ class _CardinalLabels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final style = TextStyle(
       fontWeight: FontWeight.bold,
       fontSize: 18,
-      color: AppTheme.emerald,
+      color: isDark ? AppTheme.goldDarkLight : AppTheme.emerald,
     );
-    return const Stack(
+    return Stack(
       children: [
         Positioned(top: 34, left: 0, right: 0, child: Center(child: Text('N', style: style))),
         Positioned(bottom: 34, left: 0, right: 0, child: Center(child: Text('S', style: style))),
@@ -412,6 +648,8 @@ class _KaabaBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     final mainColor = aligned ? Colors.green.shade600 : Colors.black87;
     return Container(
       width: 92,
@@ -427,7 +665,7 @@ class _KaabaBox extends StatelessWidget {
           ],
         ),
         border: Border.all(
-          color: aligned ? Colors.greenAccent : AppTheme.gold,
+          color: aligned ? Colors.greenAccent : gold,
           width: 2,
         ),
         boxShadow: aligned
@@ -452,7 +690,7 @@ class _KaabaBox extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(top: 12),
             height: 12,
-            color: AppTheme.gold,
+            color: gold,
           ),
           const Spacer(),
           // Gold door.
@@ -460,7 +698,7 @@ class _KaabaBox extends StatelessWidget {
             width: 22,
             height: 30,
             decoration: BoxDecoration(
-              color: AppTheme.gold,
+              color: gold,
               borderRadius: BorderRadius.circular(11),
             ),
           ),

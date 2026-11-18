@@ -2,62 +2,50 @@ import 'dart:math' as math;
 
 import 'package:adhan/adhan.dart';
 import 'package:intl/intl.dart';
-import 'package:timezone/timezone.dart' as tz;
-
-import '../models/city.dart';
 
 /// Prayer times, Qibla bearing and Makkah distance — all computed
-/// ON-DEVICE from real coordinates. No internet needed.
+/// ON-DEVICE from the phone's GPS coordinates. No internet needed.
 ///
-/// TIME-ZONE RULE (this is the bug that bit the web prototype once):
-/// the adhan package returns wall-clock times for the LOCATION. We never
-/// display the phone's own local time. Every time is rebuilt as a
-/// TZDateTime in the SELECTED city's IANA zone, so Hyderabad always shows
-/// PKT (05:25 Fajr) even if the phone itself is set to UTC.
+/// GPS RULE: every method takes raw coordinates (latitude, longitude)
+/// from LocationService. The adhan package returns wall-clock times
+/// for the LOCATION in the phone's own local time — we display them
+/// exactly as returned (DateTime.now() is the same clock), never
+/// re-interpreted into another time zone. There is no city picker
+/// any more: the coordinates come from GPS, the method/madhab from
+/// SettingsProvider (calculationMethod / madhab).
 class PrayerService {
-  static CalculationParameters _params() {
-    final params = CalculationMethod.karachi.getParameters();
-    params.madhab = Madhab.hanafi;
+  static CalculationParameters _params(
+    CalculationMethod method,
+    Madhab madhab,
+  ) {
+    final params = method.getParameters();
+    params.madhab = madhab;
     return params;
   }
 
-  /// City time zone, falling back to Asia/Karachi if the saved zone string
-  /// is unknown — a bad zone must never throw. (It used to crash the app
-  /// right after login, when Azan scheduling runs.)
-  static tz.Location _loc(CityPreset city) {
-    try {
-      return tz.getLocation(city.timeZone);
-    } catch (_) {
-      return tz.getLocation('Asia/Karachi');
-    }
-  }
-
-  /// Prayer times for [city] on [date] (Gregorian date in that city).
+  /// Prayer times at ([latitude], [longitude]) on [date].
   /// Keys: fajr, sunrise, dhuhr, asr, maghrib, isha — values are
-  /// TZDateTime in the city's own time zone.
-  static Map<String, tz.TZDateTime> timesFor(CityPreset city, DateTime date) {
-    final loc = _loc(city);
+  /// DateTime in the phone's local time.
+  static Map<String, DateTime> timesFor(
+    double latitude,
+    double longitude,
+    DateTime date, {
+    required CalculationMethod method,
+    required Madhab madhab,
+  }) {
     final components = DateComponents(date.year, date.month, date.day);
     final pt = PrayerTimes(
-      Coordinates(city.latitude, city.longitude),
+      Coordinates(latitude, longitude),
       components,
-      _params(),
+      _params(method, madhab),
     );
-    tz.TZDateTime inZone(DateTime dt) => tz.TZDateTime(
-          loc,
-          dt.year,
-          dt.month,
-          dt.day,
-          dt.hour,
-          dt.minute,
-        );
     return {
-      'fajr': inZone(pt.fajr),
-      'sunrise': inZone(pt.sunrise),
-      'dhuhr': inZone(pt.dhuhr),
-      'asr': inZone(pt.asr),
-      'maghrib': inZone(pt.maghrib),
-      'isha': inZone(pt.isha),
+      'fajr': pt.fajr,
+      'sunrise': pt.sunrise,
+      'dhuhr': pt.dhuhr,
+      'asr': pt.asr,
+      'maghrib': pt.maghrib,
+      'isha': pt.isha,
     };
   }
 
@@ -66,14 +54,22 @@ class PrayerService {
   /// SettingsProvider.masjidTimings. Sunrise is never overridden.
   /// A 'jumuah' entry overrides Dhuhr on Fridays only. Invalid or
   /// missing entries are ignored (calculated time stays).
-  static Map<String, tz.TZDateTime> effectiveTimesFor(
-    CityPreset city,
-    DateTime date, [
+  static Map<String, DateTime> effectiveTimesFor(
+    double latitude,
+    double longitude,
+    DateTime date, {
+    required CalculationMethod method,
+    required Madhab madhab,
     Map<String, String> custom = const {},
-  ]) {
-    final times = timesFor(city, date);
+  }) {
+    final times = timesFor(
+      latitude,
+      longitude,
+      date,
+      method: method,
+      madhab: madhab,
+    );
     if (custom.isEmpty) return times;
-    final loc = _loc(city);
     for (final e in custom.entries) {
       if (e.key == 'sunrise') continue;
       final parts = e.value.split(':');
@@ -83,7 +79,7 @@ class PrayerService {
       if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) {
         continue;
       }
-      final at = tz.TZDateTime(loc, date.year, date.month, date.day, h, m);
+      final at = DateTime(date.year, date.month, date.day, h, m);
       if (e.key == 'jumuah') {
         if (date.weekday == DateTime.friday) times['dhuhr'] = at;
         continue;
@@ -94,30 +90,44 @@ class PrayerService {
     return times;
   }
 
-  /// "Now" in the city's time zone.
-  static tz.TZDateTime nowIn(CityPreset city) =>
-      tz.TZDateTime.now(_loc(city));
+  /// "Now" on the phone's own clock.
+  static DateTime nowIn() => DateTime.now();
 
   /// The next prayer after [now] (today, else tomorrow's Fajr).
   /// Returns (key, time). Sunrise is never a "next prayer" for countdown.
-  static MapEntry<String, tz.TZDateTime> nextPrayer(
-    CityPreset city,
-    tz.TZDateTime now,
-  ) {
-    return nextPrayerWith(city, now);
+  static MapEntry<String, DateTime> nextPrayer(
+    double latitude,
+    double longitude,
+    DateTime now, {
+    required CalculationMethod method,
+    required Madhab madhab,
+  }) {
+    return nextPrayerWith(
+      latitude,
+      longitude,
+      now,
+      method: method,
+      madhab: madhab,
+    );
   }
 
   /// Same as [nextPrayer] but with the user's own masjid times applied
   /// (see [effectiveTimesFor]). Home countdown + Azan use this one.
-  static MapEntry<String, tz.TZDateTime> nextPrayerWith(
-    CityPreset city,
-    tz.TZDateTime now, [
+  static MapEntry<String, DateTime> nextPrayerWith(
+    double latitude,
+    double longitude,
+    DateTime now, {
+    required CalculationMethod method,
+    required Madhab madhab,
     Map<String, String> custom = const {},
-  ]) {
+  }) {
     final today = effectiveTimesFor(
-      city,
+      latitude,
+      longitude,
       DateTime(now.year, now.month, now.day),
-      custom,
+      method: method,
+      madhab: madhab,
+      custom: custom,
     );
     const order = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
     for (final key in order) {
@@ -127,15 +137,17 @@ class PrayerService {
     }
     final tomorrow = now.add(const Duration(days: 1));
     final t = effectiveTimesFor(
-      city,
+      latitude,
+      longitude,
       DateTime(tomorrow.year, tomorrow.month, tomorrow.day),
-      custom,
+      method: method,
+      madhab: madhab,
+      custom: custom,
     );
     return MapEntry('fajr', t['fajr']!);
   }
 
-  static String formatTime(tz.TZDateTime dt) =>
-      DateFormat('h:mm a').format(dt);
+  static String formatTime(DateTime dt) => DateFormat('h:mm a').format(dt);
 
   static String formatCountdown(Duration d) {
     final h = d.inHours;
@@ -156,13 +168,13 @@ class PrayerService {
     'jumuah': 'Jumu\'ah',
   };
 
-  /// Qibla bearing from [city] to the Kaaba (21.4225 N, 39.8262 E),
-  /// great-circle formula. Hyderabad = 267 degrees (west).
-  static double qiblaBearing(CityPreset city) {
+  /// Qibla bearing from ([latitude], [longitude]) to the Kaaba
+  /// (21.4225 N, 39.8262 E), great-circle formula.
+  static double qiblaBearing(double latitude, double longitude) {
     const kaabaLat = 21.4225;
     const kaabaLng = 39.8262;
-    final lat1 = city.latitude * math.pi / 180;
-    final lng1 = city.longitude * math.pi / 180;
+    final lat1 = latitude * math.pi / 180;
+    final lng1 = longitude * math.pi / 180;
     final lat2 = kaabaLat * math.pi / 180;
     final lng2 = kaabaLng * math.pi / 180;
     final dLng = lng2 - lng1;
@@ -174,15 +186,16 @@ class PrayerService {
     return bearing;
   }
 
-  /// Great-circle distance from [city] to the Kaaba, in kilometres.
-  static double distanceToMakkahKm(CityPreset city) {
+  /// Great-circle distance from ([latitude], [longitude]) to the
+  /// Kaaba, in kilometres.
+  static double distanceToMakkahKm(double latitude, double longitude) {
     const kaabaLat = 21.4225;
     const kaabaLng = 39.8262;
     const r = 6371.0;
-    final lat1 = city.latitude * math.pi / 180;
+    final lat1 = latitude * math.pi / 180;
     final lat2 = kaabaLat * math.pi / 180;
-    final dLat = (kaabaLat - city.latitude) * math.pi / 180;
-    final dLng = (kaabaLng - city.longitude) * math.pi / 180;
+    final dLat = (kaabaLat - latitude) * math.pi / 180;
+    final dLng = (kaabaLng - longitude) * math.pi / 180;
     final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1) *
             math.cos(lat2) *

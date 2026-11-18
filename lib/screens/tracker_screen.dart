@@ -60,8 +60,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
   @override
   Widget build(BuildContext context) {
     final done = _today.values.where((v) => v != 'missed').length;
+    // Demo tokens, both modes (visual only — tracking logic untouched).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final chipBg = isDark ? AppTheme.chipDark : AppTheme.chipLight;
+    final arabic =
+        isDark ? AppTheme.arabicGold : AppTheme.arabicGreen;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         const SectionTitle(
           title: 'Prayer Tracker',
@@ -74,16 +81,19 @@ class _TrackerScreenState extends State<TrackerScreen> {
               children: [
                 Text(
                   'Today: $done / 5 prayers done',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    color: ink,
                   ),
                 ),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: done / 5,
-                  color: AppTheme.gold,
-                  backgroundColor: Colors.grey.shade300,
+                  color: gold,
+                  backgroundColor: chipBg,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ],
             ),
@@ -98,9 +108,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 children: [
                   Text(
                     _prayerNames[p]!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: ink,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -118,7 +129,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                                 : opt == 'alone'
                                     ? 'Alone'
                                     : 'Missed',
-                            style: const TextStyle(fontSize: 11),
+                            style: TextStyle(fontSize: 11, color: ink),
                           ),
                           selected: _today[p] == opt,
                           onSelected: (_) => _set(p, opt),
@@ -138,6 +149,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
               children: [
                 DropdownButton<String>(
                   value: _tasbihDhikr,
+                  dropdownColor:
+                      isDark ? AppTheme.nightCard : AppTheme.cardLight,
+                  iconEnabledColor: gold,
+                  style: TextStyle(color: ink, fontSize: 14),
                   items: const [
                     'SubhanAllah',
                     'Alhamdulillah',
@@ -155,16 +170,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '$_tasbihCount / $_tasbihTarget',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
+                    color: ink,
                   ),
                 ),
                 Text(
                   _tasbihDhikr,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Amiri',
                     fontSize: 22,
+                    color: arabic,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -172,7 +189,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   spacing: 8,
                   children: [33, 99, 100, 500, 1000].map((t) {
                     return ChoiceChip(
-                      label: Text('$t'),
+                      label: Text('$t', style: TextStyle(color: ink)),
                       selected: _tasbihTarget == t,
                       onSelected: (_) => setState(() {
                         _tasbihTarget = t;
@@ -191,7 +208,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           shape: const CircleBorder(),
-                          backgroundColor: AppTheme.emerald,
+                          backgroundColor: isDark
+                              ? AppTheme.emeraldLight
+                              : AppTheme.emerald,
+                          foregroundColor: const Color(0xFFF7F1E3),
                         ),
                         onPressed: () => setState(() => _tasbihCount++),
                         child: const Text(
@@ -208,12 +228,14 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   ],
                 ),
                 if (_tasbihCount >= _tasbihTarget)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'MashaAllah — target reached! ✓',
                       style: TextStyle(
-                        color: AppTheme.emerald,
+                        color: isDark
+                            ? AppTheme.goldDarkLight
+                            : AppTheme.emerald,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

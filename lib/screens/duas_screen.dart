@@ -50,6 +50,14 @@ class _DuasScreenState extends State<DuasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final emerald =
+        isDark ? AppTheme.emeraldLight : AppTheme.emerald;
+    // Demo v13 Arabic gold: #D4AF37 in dark mode, emerald #005A45
+    // on the light card.
+    final arabicColor =
+        isDark ? AppTheme.arabicGold : AppTheme.arabicGreen;
     return FutureBuilder<List<Dua>>(
       future: _allFuture,
       builder: (context, snap) {
@@ -84,14 +92,13 @@ class _DuasScreenState extends State<DuasScreen> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: Column(
                 children: [
                   TextField(
                     decoration: const InputDecoration(
                       hintText: 'Search duas...',
                       prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
                     ),
                     onChanged: (v) => setState(() => _query = v),
                   ),
@@ -137,24 +144,22 @@ class _DuasScreenState extends State<DuasScreen> {
                     ),
                   Text(
                     '${shown.length} items — Arabic text and references verified for all.',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: TextStyle(fontSize: 11, color: muted),
                   ),
                 ],
               ),
             ),
             Expanded(
               child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 92),
                 itemCount: shown.length,
                 itemBuilder: (context, i) {
                   final d = shown[i];
                   final count = _counts[d.id] ?? 0;
                   return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
+                    margin: const EdgeInsets.only(bottom: 12),
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -182,41 +187,42 @@ class _DuasScreenState extends State<DuasScreen> {
                             d.arabic,
                             textDirection: TextDirection.rtl,
                             textAlign: TextAlign.right,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Amiri',
                               fontSize: 22,
                               height: 1.9,
+                              color: arabicColor,
                             ),
                           ),
                           const SizedBox(height: 6),
                           if (d.transliteration != null) ...[
-                            const Text(
+                            Text(
                               'Roman transliteration:',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontStyle: FontStyle.italic,
-                                color: Colors.grey,
+                                color: muted,
                               ),
                             ),
                             Text(d.transliteration!),
                             const SizedBox(height: 6),
                           ],
                           if (d.englishIsTransliteration)
-                            const Text(
+                            Text(
                               'Roman transliteration:',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontStyle: FontStyle.italic,
-                                color: Colors.grey,
+                                color: muted,
                               ),
                             ),
                           Text(d.english),
                           const SizedBox(height: 4),
                           Text(
                             d.reference,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey,
+                              color: muted,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -224,7 +230,7 @@ class _DuasScreenState extends State<DuasScreen> {
                             children: [
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
+                                  backgroundColor: emerald,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -237,9 +243,9 @@ class _DuasScreenState extends State<DuasScreen> {
                               ),
                               const SizedBox(width: 8),
                               if (count >= d.repeat)
-                                const Icon(
+                                Icon(
                                   Icons.check_circle,
-                                  color: AppTheme.emerald,
+                                  color: emerald,
                                 ),
                               const Spacer(),
                               TextButton(

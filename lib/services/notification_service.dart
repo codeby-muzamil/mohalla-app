@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:adhan/adhan.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../models/city.dart';
 import 'prayer_service.dart';
 import 'settings_provider.dart';
 
@@ -49,14 +49,36 @@ class NotificationService {
     await android?.requestExactAlarmsPermission();
   }
 
-  /// Schedules today's Azan for every enabled prayer in [city], plus a
-  /// reminder [reminderMinutes] before (0 = none). Old schedules are
-  /// cancelled first. Call on app start and whenever the city, the
-  /// toggles, the reminder or the voice changes. [customTimings] are
-  /// the user's own masjid times (SettingsProvider.masjidTimings) —
-  /// Azan fires at the masjid time when one is set.
+  /// Is the notification permission currently granted? Returns null
+  /// when the answer is unknown (plugin not ready / platform call
+  /// failed) — callers must treat null as "don't show the prompt".
+  /// Used by the RootScreen banner so a denied permission is never
+  /// a silent "Azan is off" (problem #13).
+  static Future<bool?> areNotificationsEnabled() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.areNotificationsEnabled();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Schedules today's Azan for every enabled prayer at the GPS
+  /// coordinates ([latitude], [longitude]), plus a reminder
+  /// [reminderMinutes] before (0 = none). Old schedules are
+  /// cancelled first. Call on app start and whenever the location,
+  /// the method/madhab, the toggles, the reminder or the voice
+  /// changes. [customTimings] are the user's own masjid times
+  /// (SettingsProvider.masjidTimings) — Azan fires at the masjid
+  /// time when one is set. Times are computed in the phone's local
+  /// time and converted to TZDateTime (tz.local) only for
+  /// zonedSchedule, which requires it.
   static Future<void> rescheduleAll({
-    required CityPreset city,
+    required double latitude,
+    required double longitude,
+    required CalculationMethod method,
+    required Madhab madhab,
     required Map<String, bool> notify,
     required int reminderMinutes,
     required String voiceId,
@@ -68,11 +90,14 @@ class NotificationService {
     try {
       await _plugin.cancelAll();
       final voice = MuezzinVoice.byId(voiceId);
-      final now = PrayerService.nowIn(city);
+      final now = DateTime.now();
       final today = PrayerService.effectiveTimesFor(
-        city,
+        latitude,
+        longitude,
         DateTime(now.year, now.month, now.day),
-        customTimings,
+        method: method,
+        madhab: madhab,
+        custom: customTimings,
       );
       const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
       var id = 1;
@@ -103,14 +128,14 @@ class NotificationService {
         }
       }
     } catch (_) {
-      // Scheduling failed (bad zone, plugin error) — skip Azan silently.
+      // Scheduling failed (plugin error) — skip Azan silently.
     }
   }
 
   static Future<void> _scheduleOne(
     int id,
     String prayerKey,
-    tz.TZDateTime when,
+    DateTime when,
     MuezzinVoice voice, {
     required bool isReminder,
   }) async {
@@ -133,12 +158,14 @@ class NotificationService {
     try {
       // flutter_local_notifications 23.x: zonedSchedule takes only
       // NAMED arguments, and uiLocalNotificationDateInterpretation
-      // was removed from the package entirely.
+      // was removed from the package entirely. The DateTime is
+      // converted to the phone's local zone (tz.local) here — the
+      // only place the timezone package is needed for scheduling.
       await _plugin.zonedSchedule(
         id: id,
         title: title,
         body: body,
-        scheduledDate: when,
+        scheduledDate: tz.TZDateTime.from(when, tz.local),
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -173,10 +200,14 @@ class NotificationService {
 
   /// In-app Azan watcher: checks every 30 seconds while the app is open.
   /// When a prayer time arrives, calls [onAzan] once for that prayer.
-  /// Returns the timer so the caller can cancel it. [getCustomTimings]
-  /// supplies the user's own masjid times, if any.
+  /// Returns the timer so the caller can cancel it. [getCoords]
+  /// supplies the GPS coordinates (null when no location is known —
+  /// the tick is skipped then). [getCustomTimings] supplies the
+  /// user's own masjid times, if any.
   static Timer startInAppWatcher({
-    required CityPreset Function() getCity,
+    required ({double latitude, double longitude})? Function() getCoords,
+    required CalculationMethod Function() getMethod,
+    required Madhab Function() getMadhab,
     required Map<String, bool> Function() getNotify,
     required void Function(String prayerKey) onAzan,
     Map<String, String> Function()? getCustomTimings,
@@ -184,13 +215,17 @@ class NotificationService {
     String lastFired = '';
     return Timer.periodic(const Duration(seconds: 30), (_) {
       try {
-        final city = getCity();
+        final coords = getCoords();
+        if (coords == null) return;
         final notify = getNotify();
-        final now = PrayerService.nowIn(city);
+        final now = DateTime.now();
         final today = PrayerService.effectiveTimesFor(
-          city,
+          coords.latitude,
+          coords.longitude,
           DateTime(now.year, now.month, now.day),
-          getCustomTimings?.call() ?? const {},
+          method: getMethod(),
+          madhab: getMadhab(),
+          custom: getCustomTimings?.call() ?? const {},
         );
         const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
         for (final key in prayers) {

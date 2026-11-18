@@ -1,5 +1,5 @@
 name: mohalla
-description: "Mohalla — Global Muslim app. Home, full Quran offline (Surah reader + 16-line Pakistani Mushaf), Seekhein (Wudu/Namaz), Qibla 3D, Azan notifications, timezones, AI Dost."
+description: "Mohalla — Global Muslim app. Home, full Quran offline (Surah reader + 16-line Pakistani Mushaf), Seekhein (Wudu/Namaz), Qibla 3D, Azan notifications, GPS location, AI Dost."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -16,6 +16,11 @@ dependencies:
 
   # Prayer times (adhan calculation).
   adhan: 2.0.0+1
+  # GPS location: prayer times, Qibla, mosques and Azan all come from
+  # the phone's location (no city picker any more).
+  geolocator: 14.1.2
+  # Reverse geocoding: GPS coordinates -> place name (city, country).
+  geocoding: 5.0.1
   # Hijri date (device Islamic calendar via this package — NOT a tabular estimate).
   hijri: 3.0.1
   # Qibla compass heading from the device rotation-vector sensor
@@ -37,11 +42,14 @@ dependencies:
   qibla_math: 0.1.0
   # Offline storage (settings, tracker, bookmarks, masjid timings).
   shared_preferences: 2.5.6
+  # App documents directory for per-surah Quran audio downloads.
+  path_provider: 2.1.5
   # Masjid photo + timings-board photo (gallery + camera).
   image_picker: 1.2.4
   # Azan notifications (scheduled, per-prayer toggles).
   flutter_local_notifications: 23.0.2
-  # Time-zone data for the world-cities feature.
+  # Time-zone data, used ONLY to convert local times for Azan
+  # scheduling (tz.local in notification_service.dart).
   timezone: 0.11.2
   # Gemini AI bot (AI Dost). Key ONLY via --dart-define, never in code.
   google_generative_ai: 0.4.7

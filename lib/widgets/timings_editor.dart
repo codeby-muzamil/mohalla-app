@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../services/location_service.dart';
 import '../services/prayer_service.dart';
 import '../services/settings_provider.dart';
 import 'common.dart';
@@ -18,19 +20,27 @@ import 'common.dart';
 /// there is no OCR; the user reads the board and types the times.
 Future<void> showMasjidTimingsEditor(BuildContext context) async {
   final settings = context.read<SettingsProvider>();
-  final cityNow = PrayerService.nowIn(settings.city);
-  final times = PrayerService.timesFor(
-    settings.city,
-    DateTime(cityNow.year, cityNow.month, cityNow.day),
-  );
+  final coords = context.read<LocationService>().current;
+  final now = DateTime.now();
+  // Prefill with the calculated times at the GPS location (24h).
+  // Without a location yet, the fields start empty (except Jumu'ah).
+  final times = coords == null
+      ? <String, DateTime>{}
+      : PrayerService.timesFor(
+          coords.latitude,
+          coords.longitude,
+          DateTime(now.year, now.month, now.day),
+          method: settings.calculationMethod,
+          madhab: settings.madhab,
+        );
   final controllers = <String, TextEditingController>{};
   for (final key in ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah']) {
     final existing = settings.masjidTimings[key];
     final fallback = key == 'jumuah'
         ? '13:30'
-        : PrayerService.formatTime(times[key] ?? times['dhuhr']!)
-            .replaceAll(' AM', '')
-            .replaceAll(' PM', '');
+        : (times[key] != null
+            ? DateFormat('HH:mm').format(times[key]!)
+            : '');
     controllers[key] = TextEditingController(text: existing ?? fallback);
   }
   final hasCustom = settings.masjidTimings.isNotEmpty;

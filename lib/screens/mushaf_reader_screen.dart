@@ -63,7 +63,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
             labelText: 'Page number (1–548)',
-            border: OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -85,6 +84,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   void _showJumpToSurah() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -108,6 +109,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                 ),
                 subtitle: Text(
                   '${s.englishName} • Page ${MushafService.firstPageOfSurah(s.number)}',
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -124,29 +126,54 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   void _showTranslations() {
     final settings = context.read<SettingsProvider>();
     final ayahs = MushafService.pageAyahs(_page);
+    // Demo tokens for the sheet chrome only — the mushaf page
+    // rendering below is untouched.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? AppTheme.nightCard : AppTheme.cardLight;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final cardLine =
+        isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: sheetBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
         maxChildSize: 0.95,
         builder: (c, scrollCtrl) => Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cardLine,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Translation — Page $_page',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Urdu (Jalandhari) + English (Asad) — the same verified translation as the Surah reader.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: muted),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -157,17 +184,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     final (s, a) = ayahs[i];
                     final surah = QuranService.surah(s);
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
+                      margin: const EdgeInsets.only(bottom: 10),
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               '${surah.englishName} $s:$a',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.emerald,
+                                color: accent,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -208,7 +235,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mushaf — 16 Line'),
+        // Demo-token chrome: emerald bar by day, night bg after dark.
+        // The mushaf page rendering below is untouched.
+        backgroundColor: isDark ? AppTheme.nightBg : AppTheme.emerald,
+        foregroundColor: isDark ? AppTheme.nightInk : Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Mushaf — 16 Line',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             tooltip: 'Go to Surah',
@@ -228,19 +263,20 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
               children: [
                 Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           'Page $_page / ${MushafService.totalPages} • '
                           'Pakistani Mushaf (16 line)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
+                            color: ink,
                           ),
                         ),
                       ),
-                      TextButton.icon(
+                      OutlinedButton.icon(
                         icon: const Icon(Icons.translate, size: 18),
                         label: const Text('Translation'),
                         onPressed: _showTranslations,
@@ -269,7 +305,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                   child: Row(
                     children: [
                       Expanded(

@@ -4,5 +4,8 @@
          drawable/launch_background.xml as @color/launch_background.
          (A raw hex colour cannot be used directly in android:drawable.) -->
     <color name="launch_background">#0B6B4F</color>
-    <color name="ic_launcher_background">#005A45</color>
+    <!-- Adaptive-icon background. #004136 == the 5B launcher artwork's
+         own field colour, so the foreground/background seam is invisible.
+         (Changed from #005A45 with the 5A/5B icon install, 2026-11-18.) -->
+    <color name="ic_launcher_background">#004136</color>
 </resources>

@@ -10,9 +10,11 @@ import 'screens/duas_screen.dart';
 import 'screens/hadith_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/learn_screen.dart';
+import 'screens/location_screen.dart';
 import 'screens/mosques_screen.dart';
 import 'screens/mushaf_reader_screen.dart';
 import 'screens/names_screen.dart';
+import 'screens/news_screen.dart';
 import 'screens/onboarding_flow.dart';
 import 'screens/profile_edit_screen.dart';
 import 'screens/qibla_screen.dart';
@@ -20,10 +22,11 @@ import 'screens/quran_list_screen.dart';
 import 'screens/quran_reader_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sunnah_screen.dart';
-import 'screens/timezones_screen.dart';
 import 'screens/tracker_screen.dart';
 import 'screens/zakat_screen.dart';
 import 'screens/zyada_screen.dart';
+import 'services/gemini_service.dart';
+import 'services/location_service.dart';
 import 'services/notification_service.dart';
 import 'services/settings_provider.dart';
 import 'theme/app_theme.dart';
@@ -41,10 +44,24 @@ Future<void> main() async {
   try {
     await settings.init();
   } catch (_) {}
+  // The user's own Gemini key (if pasted in Settings) is loaded into
+  // the AI service — it wins over the --dart-define key, and without
+  // any key the bot stays on offline answers.
+  GeminiService.setRuntimeKey(settings.geminiApiKey);
+  // GPS location: the cached location loads fast; the fresh GPS fix
+  // runs in the background (LocationService.init starts the refresh
+  // without waiting for it).
+  final location = LocationService();
+  try {
+    await location.init();
+  } catch (_) {}
   await NotificationService.init();
   runApp(
-    ChangeNotifierProvider<SettingsProvider>.value(
-      value: settings,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+        ChangeNotifierProvider<LocationService>.value(value: location),
+      ],
       child: const MohallaApp(),
     ),
   );
@@ -87,11 +104,23 @@ class RootScreen extends StatefulWidget {
   State<RootScreen> createState() => _RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> {
+class _RootScreenState extends State<RootScreen>
+    with WidgetsBindingObserver {
   int _index = 0;
   Timer? _azanWatcher;
   String? _azanBanner;
   late final SettingsProvider _settings;
+  late final LocationService _location;
+
+  /// Notification permission state (null = unknown / not checked yet).
+  /// When false and any Azan toggle is on, a banner explains that
+  /// Azan cannot sound while the app is closed (problem #13 — it
+  /// used to be silently off). [ _notifPromptDismissed ] stops the
+  /// nagging: once dismissed, the banner stays hidden until the
+  /// permission state changes (e.g. allowed in Settings, then denied
+  /// again later).
+  bool? _notificationsEnabled;
+  bool _notifPromptDismissed = false;
 
   static const _titles = [
     'Mohalla',
@@ -104,21 +133,30 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _settings = context.read<SettingsProvider>();
+    _location = context.read<LocationService>();
     final settings = _settings;
-    // Schedule today's Azan notifications (masjid times when set).
-    NotificationService.rescheduleAll(
-      city: settings.city,
-      notify: settings.notify,
-      reminderMinutes: settings.reminderMinutes,
-      voiceId: settings.muezzinVoice,
-      customTimings: settings.masjidTimings,
-    );
-    // Re-schedule whenever the city / toggles / voice / masjid times change.
+    // Notification permission: check once at startup so a denied
+    // permission shows the honest banner instead of silent no-Azan.
+    _checkNotificationPermission();
+    // Schedule today's Azan notifications from the GPS location
+    // (masjid times when set). Nothing is scheduled until a
+    // location is known.
+    _rescheduleAzan();
+    // Re-schedule whenever the location, the method/madhab, the
+    // toggles, the voice or the masjid times change.
     settings.addListener(_onSettingsChanged);
+    _location.addListener(_onLocationChanged);
     // In-app Azan while the app is open.
     _azanWatcher = NotificationService.startInAppWatcher(
-      getCity: () => _settings.city,
+      getCoords: () {
+        final c = _location.current;
+        if (c == null) return null;
+        return (latitude: c.latitude, longitude: c.longitude);
+      },
+      getMethod: () => _settings.calculationMethod,
+      getMadhab: () => _settings.madhab,
       getNotify: () => _settings.notify,
       getCustomTimings: () => _settings.masjidTimings,
       onAzan: (prayerKey) {
@@ -130,9 +168,40 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  void _onSettingsChanged() {
+  void _onSettingsChanged() => _rescheduleAzan();
+
+  void _onLocationChanged() => _rescheduleAzan();
+
+  /// Re-check the notification permission (also when the app comes
+  /// back from Settings, via didChangeAppLifecycleState). If the
+  /// permission was granted, the dismissal is cleared so the prompt
+  /// can appear again if it is denied again later.
+  Future<void> _checkNotificationPermission() async {
+    final enabled = await NotificationService.areNotificationsEnabled();
+    if (!mounted) return;
+    setState(() {
+      if (enabled == true) _notifPromptDismissed = false;
+      _notificationsEnabled = enabled;
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The user may have changed the permission in the phone's
+    // Settings while the app was in the background — re-check.
+    if (state == AppLifecycleState.resumed) {
+      _checkNotificationPermission();
+    }
+  }
+
+  void _rescheduleAzan() {
+    final coords = _location.current;
+    if (coords == null) return;
     NotificationService.rescheduleAll(
-      city: _settings.city,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      method: _settings.calculationMethod,
+      madhab: _settings.madhab,
       notify: _settings.notify,
       reminderMinutes: _settings.reminderMinutes,
       voiceId: _settings.muezzinVoice,
@@ -142,8 +211,10 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _azanWatcher?.cancel();
     _settings.removeListener(_onSettingsChanged);
+    _location.removeListener(_onLocationChanged);
     super.dispose();
   }
 
@@ -168,8 +239,8 @@ class _RootScreenState extends State<RootScreen> {
       case 'qibla':
         page = const QiblaScreen();
         break;
-      case 'timezones':
-        page = const TimezonesScreen();
+      case 'location':
+        page = const LocationScreen();
         break;
       case 'tracker':
         page = const TrackerScreen();
@@ -182,6 +253,9 @@ class _RootScreenState extends State<RootScreen> {
         break;
       case 'mosques':
         page = const MosquesScreen();
+        break;
+      case 'news':
+        page = const NewsScreen();
         break;
       case 'settings':
         page = const SettingsScreen();
@@ -218,9 +292,14 @@ class _RootScreenState extends State<RootScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final location = context.watch<LocationService>();
+    // Watched so the notification banner reacts when the user turns
+    // all Azan toggles off in Settings (then Azan is off by choice
+    // and the banner must disappear).
+    final settings = context.watch<SettingsProvider>();
     final pages = [
       HomeScreen(
-        onOpenTimezones: () => _openTool('timezones'),
+        onOpenLocation: () => _openTool('location'),
         onOpenQibla: () => _openTool('qibla'),
         onOpenAyah: _openAyah,
         onOpenTool: _openTool,
@@ -235,8 +314,7 @@ class _RootScreenState extends State<RootScreen> {
     return Scaffold(
       appBar: _MohallaHeader(
         title: _titles[_index],
-        subtitle:
-            '${_settings.city.name} • ${_settings.city.timeZone}',
+        subtitle: location.headerSubtitle,
       ),
       // App-wide Islamic pattern behind every tab (gold-on-sand in
       // light mode, faint white-on-night in dark mode) — the old plain
@@ -278,6 +356,23 @@ class _RootScreenState extends State<RootScreen> {
                   ],
                 ),
               ),
+            // Azan notifications are off because the permission was
+            // denied — say so plainly, with a way to fix it. Shown
+            // only while any Azan toggle is on (off by choice needs
+            // no banner), and never again after dismiss until the
+            // permission state changes.
+            if (_notificationsEnabled == false &&
+                !_notifPromptDismissed &&
+                settings.notify.values.any((v) => v))
+              _NotificationDeniedBanner(
+                onAllow: () async {
+                  await NotificationService.requestPermissions();
+                  await _checkNotificationPermission();
+                },
+                onOpenSettings: () => _location.openSettings(),
+                onDismiss: () =>
+                    setState(() => _notifPromptDismissed = true),
+              ),
             Expanded(child: IndexedStack(index: _index, children: pages)),
           ],
         ),
@@ -291,7 +386,7 @@ class _RootScreenState extends State<RootScreen> {
 }
 
 /// 3D header: emerald gradient + Islamic pattern + gold glow, gold M
-/// medallion, title + city subtitle. Replaces the flat AppBar.
+/// medallion, title + location subtitle. Replaces the flat AppBar.
 class _MohallaHeader extends StatelessWidget
     implements PreferredSizeWidget {
   final String title;
@@ -304,6 +399,9 @@ class _MohallaHeader extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    // Demo v13: the header is emerald in both modes; the gold accent
+    // is the bright dark-mode gold (#D9A441) at night, #C9A227 by day.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: const BoxDecoration(
         boxShadow: [
@@ -318,7 +416,7 @@ class _MohallaHeader extends StatelessWidget
         base: AppTheme.emerald,
         patternColor: Colors.white,
         patternOpacity: 0.24,
-        glowColor: AppTheme.gold,
+        glowColor: isDark ? AppTheme.goldDark : AppTheme.gold,
         child: SafeArea(
           bottom: false,
           child: Padding(
@@ -347,8 +445,10 @@ class _MohallaHeader extends StatelessWidget
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.goldLight,
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.goldDark
+                              : AppTheme.goldLight,
                           fontSize: 12,
                         ),
                       ),
@@ -394,12 +494,17 @@ class _MohallaFooter extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
+          // Demo v13 footer: sand card → chip tint by day,
+          // night card → night alt after dark.
           colors: isDark
-              ? const [Color(0xFF0E3A2B), Color(0xFF082A1F)]
-              : const [Color(0xFFFFFBF0), Color(0xFFF1E7C8)],
+              ? const [AppTheme.nightCard, AppTheme.nightAlt]
+              : const [AppTheme.cardLight, AppTheme.chipLight],
         ),
-        border: const Border(
-          top: BorderSide(color: AppTheme.gold, width: 2.5),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppTheme.goldDark : AppTheme.gold,
+            width: 2.5,
+          ),
         ),
         boxShadow: const [
           BoxShadow(
@@ -470,8 +575,11 @@ class _FooterItemState extends State<_FooterItem> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Demo v13: active tab is a gold pill with dark text (#1A2E28);
+    // inactive tabs use the muted ink of the current mode.
     final inactiveColor =
-        isDark ? Colors.white70 : Colors.grey.shade600;
+        isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    const activeText = Color(0xFF1A2E28);
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -491,14 +599,20 @@ class _FooterItemState extends State<_FooterItem> {
           decoration: widget.active
               ? BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.goldLight,
-                      AppTheme.gold,
-                      Color(0xFF9A7B1A),
-                    ],
+                    colors: isDark
+                        ? const [
+                            AppTheme.goldDarkLight,
+                            AppTheme.goldDark,
+                            AppTheme.gold,
+                          ]
+                        : const [
+                            AppTheme.goldLight,
+                            AppTheme.gold,
+                            Color(0xFF8A6D1B),
+                          ],
                   ),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.65),
@@ -506,7 +620,8 @@ class _FooterItemState extends State<_FooterItem> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.gold.withValues(alpha: 0.65),
+                      color: (isDark ? AppTheme.goldDark : AppTheme.gold)
+                          .withValues(alpha: 0.65),
                       blurRadius: 18,
                       spreadRadius: 2,
                       offset: const Offset(0, 4),
@@ -525,7 +640,7 @@ class _FooterItemState extends State<_FooterItem> {
               Icon(
                 widget.icon,
                 size: 24,
-                color: widget.active ? AppTheme.ink : inactiveColor,
+                color: widget.active ? activeText : inactiveColor,
               ),
               const SizedBox(height: 2),
               Text(
@@ -536,12 +651,90 @@ class _FooterItemState extends State<_FooterItem> {
                   fontSize: 11,
                   fontWeight:
                       widget.active ? FontWeight.bold : FontWeight.normal,
-                  color: widget.active ? AppTheme.ink : inactiveColor,
+                  color: widget.active ? activeText : inactiveColor,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Amber banner shown when notification permission is denied while
+/// Azan is switched on. Honest about the consequence (no Azan sound
+/// when the app is closed; in-app Azan still works while open) and
+/// offers two fixes: ask the system again, or open the app's
+/// Settings page (Geolocator.openAppSettings via LocationService).
+class _NotificationDeniedBanner extends StatelessWidget {
+  final Future<void> Function() onAllow;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onDismiss;
+
+  const _NotificationDeniedBanner({
+    required this.onAllow,
+    required this.onOpenSettings,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      // Demo v13 toast: #FDF6DA background, #17352A text.
+      color: AppTheme.toastBg,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.notifications_off, color: AppTheme.emerald),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Azan notifications are off',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Notification permission is denied, so Azan cannot '
+                  'sound when the app is closed. In-app Azan still '
+                  'works while the app is open.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.ink),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        onAllow();
+                      },
+                      child: const Text('Allow notifications'),
+                    ),
+                    TextButton(
+                      onPressed: onOpenSettings,
+                      child: const Text('Open Settings'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: 'Dismiss',
+            onPressed: onDismiss,
+          ),
+        ],
       ),
     );
   }
@@ -561,11 +754,12 @@ class _ToolPage extends StatelessWidget {
     'hadith': 'Hadith Library',
     'calendar': 'Hijri Calendar',
     'qibla': 'Qibla Compass 3D',
-    'timezones': 'Timezones',
+    'location': 'My Location',
     'tracker': 'Prayer Tracker + Tasbih',
     'zakat': 'Zakat Calculator',
     'sunnah': 'Sunnah & Shariah',
     'mosques': 'Nearby Mosques',
+    'news': 'Islamic News',
     'settings': 'Settings',
   };
 

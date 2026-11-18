@@ -12,8 +12,9 @@ import '../widgets/pattern.dart';
 
 /// Nusuk-style first-launch flow (shown only until the profile is set):
 ///   1. Splash — Islamic pattern + gold M mark in the centre.
-///   2. Permissions — explains Azan notifications + preset-city location
-///      (no live GPS in this app), requests notification permission.
+///   2. Permissions — explains Azan notifications + GPS location
+///      (prayer timings and Qibla come from the phone's location),
+///      requests notification permission.
 ///   3. Login — app icon top-right, Arabic calligraphy words orbiting
 ///      in slow circles, Gmail login + Skip (profile stays local-only;
 ///      real Google sign-in needs Firebase — see BUILD_NOTES.md).
@@ -89,17 +90,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 }
 
-/// The gold M mark (Icon 2: M shaped as two minarets with a dome).
-/// Uses the real launcher-icon artwork (assets/images/mohalla_icon.png)
+/// App icon mark (5B refined-flat mosque, gold on emerald).
+/// Uses the launcher-icon artwork (assets/images/mohalla_icon.png)
 /// in a ROUNDED SQUARE — never clipped to a circle. The circle clip cut
 /// off the minarets/dome (the artwork nearly fills the square source), so
 /// the icon looked cut on the splash, login and header. The old version
 /// drew a text 'M' in a gold circle, which is why the app showed a bare
 /// letter everywhere the mark is used.
+/// The Splash screen passes the 5A 3D artwork instead
+/// (assets/images/mohalla_splash_icon.png) via [asset]; everywhere else
+/// shows the 5B mark (header, login, permissions).
 class GoldMark extends StatelessWidget {
   final double size;
 
-  const GoldMark({super.key, this.size = 120});
+  /// Icon artwork to show. Defaults to the 5B launcher mark.
+  final String asset;
+
+  const GoldMark({
+    super.key,
+    this.size = 120,
+    this.asset = 'assets/images/mohalla_icon.png',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +139,7 @@ class GoldMark extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(size * 0.08),
           child: Image.asset(
-            'assets/images/mohalla_icon.png',
+            asset,
             fit: BoxFit.contain,
             // If the asset ever fails to bundle, show a mosque mark instead
             // of an empty box — the splash must never die on a missing image.
@@ -157,8 +168,22 @@ class _SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<_SplashPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _c;
+  // Demo v13 orbit: the Arabic words circle the mark on a slow 46s spin.
+  late final AnimationController _orbit;
+
+  /// Words on the splash orbit (demo v13: 8 words).
+  static const _orbitWords = [
+    'الله',
+    'محمد',
+    'قرآن',
+    'سلام',
+    'نور',
+    'إيمان',
+    'ذكر',
+    'صبر',
+  ];
 
   @override
   void initState() {
@@ -167,12 +192,45 @@ class _SplashPageState extends State<_SplashPage>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+    _orbit = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 46),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _c.dispose();
+    _orbit.dispose();
     super.dispose();
+  }
+
+  /// Words placed on a circle of radius 118 around the mark, moving
+  /// with [angle]. Only the POSITION moves — each word stays upright.
+  List<Widget> _splashOrbitWords(double angle) {
+    final out = <Widget>[];
+    for (var i = 0; i < _orbitWords.length; i++) {
+      final a = angle + i * 2 * math.pi / _orbitWords.length;
+      final dx = 118 * math.cos(a);
+      final dy = 118 * math.sin(a);
+      out.add(
+        Transform.translate(
+          offset: Offset(dx, dy),
+          child: Text(
+            _orbitWords[i],
+            style: TextStyle(
+              fontFamily: 'Amiri',
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              // Splash background is always dark emerald: demo orbit
+              // gold #F0D488.
+              color: Color(0xFFF0D488),
+            ),
+          ),
+        ),
+      );
+    }
+    return out;
   }
 
   @override
@@ -209,34 +267,64 @@ class _SplashPageState extends State<_SplashPage>
               // a circle): GoldMark itself is a rounded square, and the
               // old circular ring cut across its corners — that was the
               // "logo cut" on the splash. Radius 44 = 12 padding +
-              // the mark's own 24% corner radius.
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(44),
-                  border: Border.all(
-                    color: AppTheme.gold.withValues(alpha: 0.55),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.gold.withValues(alpha: 0.30),
-                      blurRadius: 32,
-                      spreadRadius: 4,
+              // the mark's own 24% corner radius. The 8 demo orbit
+              // words circle the ring (radius 118) on the 46s spin.
+              SizedBox(
+                width: 280,
+                height: 280,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(44),
+                        border: Border.all(
+                          color: AppTheme.gold.withValues(alpha: 0.55),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.gold.withValues(alpha: 0.30),
+                            blurRadius: 32,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _c,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            // Gentle pulse only (was 1.04): the icon must not
+                            // look zoomed — the full logo has to stay visible.
+                            scale: 1 + 0.02 * _c.value,
+                            child: child,
+                          );
+                        },
+                        // Splash shows the 5A 3D artwork; everywhere else
+                        // uses the 5B mark (GoldMark default).
+                        child: const GoldMark(
+                          size: 132,
+                          asset: 'assets/images/mohalla_splash_icon.png',
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 280,
+                      height: 280,
+                      child: AnimatedBuilder(
+                        animation: _orbit,
+                        builder: (context, _) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: _splashOrbitWords(
+                              _orbit.value * 2 * math.pi,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
-                ),
-                child: AnimatedBuilder(
-                  animation: _c,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      // Gentle pulse only (was 1.04): the icon must not
-                      // look zoomed — the full logo has to stay visible.
-                      scale: 1 + 0.02 * _c.value,
-                      child: child,
-                    );
-                  },
-                  child: const GoldMark(size: 132),
                 ),
               ),
               const SizedBox(height: 24),
@@ -307,9 +395,12 @@ class _PermissionsPageState extends State<_PermissionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return PatternBackground(
-      base: AppTheme.sand,
-      patternColor: AppTheme.emerald,
+      base: isDark ? AppTheme.nightBg : AppTheme.sand,
+      patternColor: isDark ? AppTheme.goldDark : AppTheme.emerald,
       patternOpacity: 0.18,
       child: SafeArea(
         child: Padding(
@@ -319,9 +410,13 @@ class _PermissionsPageState extends State<_PermissionsPage> {
             children: [
               const GoldMark(size: 64),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Permission needed',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
+                ),
               ),
               const SizedBox(height: 4),
               Container(
@@ -335,10 +430,10 @@ class _PermissionsPageState extends State<_PermissionsPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Mohalla needs these two things so Azan and prayer '
                 'timings work correctly.',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(fontSize: 14, color: muted),
               ),
               const SizedBox(height: 20),
               _permTile(
@@ -349,10 +444,11 @@ class _PermissionsPageState extends State<_PermissionsPage> {
               ),
               const SizedBox(height: 12),
               _permTile(
-                Icons.location_city,
-                'City (preset city)',
-                'Prayer timings and Qibla are calculated from your chosen '
-                    'city — no live GPS, your location is not tracked.',
+                Icons.my_location,
+                'Location (GPS)',
+                'Prayer timings and Qibla are calculated from your phone\'s '
+                    'location. Your location stays on your phone — it is '
+                    'never sent anywhere.',
               ),
               const Spacer(),
               SizedBox(
@@ -360,8 +456,10 @@ class _PermissionsPageState extends State<_PermissionsPage> {
                 child: ElevatedButton(
                   onPressed: _asked ? null : _request,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.ink,
+                    // Demo gold button: gold bg, #1A2E28 text, radius 14.
+                    backgroundColor:
+                        isDark ? AppTheme.goldDark : AppTheme.gold,
+                    foregroundColor: const Color(0xFF1A2E28),
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     elevation: 8,
                     shadowColor: AppTheme.gold.withValues(alpha: 0.6),
@@ -391,60 +489,55 @@ class _PermissionsPageState extends State<_PermissionsPage> {
   }
 
   Widget _permTile(IconData icon, String title, String body) {
-    // Gold gradient border + soft shadow, like the feature cards.
+    // Demo v13 perm-card: radius 18, card surface (#FBF7EA light /
+    // #0F2A22 dark), 1px card-line border, demo shadow. The old
+    // version used a hard white card inside a gold gradient border.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return Container(
-      padding: const EdgeInsets.all(1.5),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(17.5),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.goldLight, AppTheme.gold, AppTheme.emerald],
+        color: isDark ? AppTheme.nightCard : AppTheme.cardLight,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight,
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
+        boxShadow: [AppTheme.cardShadow(isDark)],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: TextStyle(fontSize: 13, color: muted),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppTheme.emerald),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    body,
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -517,9 +610,12 @@ class _LoginPageState extends State<_LoginPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return PatternBackground(
-      base: AppTheme.sand,
-      patternColor: AppTheme.emerald,
+      base: isDark ? AppTheme.nightBg : AppTheme.sand,
+      patternColor: isDark ? AppTheme.goldDark : AppTheme.emerald,
       patternOpacity: 0.18,
       child: SafeArea(
         child: Stack(
@@ -627,11 +723,12 @@ class _LoginPageState extends State<_LoginPage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Assalamu Alaikum',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      color: ink,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -646,9 +743,9 @@ class _LoginPageState extends State<_LoginPage>
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Create your profile or skip.',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: muted),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -687,82 +784,114 @@ class _LoginPageState extends State<_LoginPage>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Your name',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                  // Demo login card: radius 20, card surface, 1px
+                  // card-line border, demo shadow — holds the profile
+                  // fields, the note and the sign-in actions.
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.nightCard
+                          : AppTheme.cardLight,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.cardLineDark
+                            : AppTheme.cardLineLight,
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: AppTheme.gold,
-                          width: 2,
-                        ),
-                      ),
+                      boxShadow: [AppTheme.cardShadow(isDark)],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Gmail address',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: AppTheme.gold,
-                          width: 2,
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _nameCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Your name',
+                            filled: true,
+                            fillColor: isDark
+                                ? AppTheme.chipDark
+                                : AppTheme.chipLight,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? AppTheme.goldDark
+                                    : AppTheme.gold,
+                                width: 2,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'This profile is saved only on this phone. Real Google '
-                    'sign-in will come after Firebase is added.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.mail, size: 18),
-                      label: const Text(
-                        'Sign in with Gmail',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: () => widget.onFinish(
-                        _nameCtrl.text,
-                        _emailCtrl.text,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.gold,
-                        foregroundColor: AppTheme.ink,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 15),
-                        elevation: 8,
-                        shadowColor:
-                            AppTheme.gold.withValues(alpha: 0.6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Gmail address',
+                            filled: true,
+                            fillColor: isDark
+                                ? AppTheme.chipDark
+                                : AppTheme.chipLight,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? AppTheme.goldDark
+                                    : AppTheme.gold,
+                                width: 2,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'This profile is saved only on this phone. Real Google '
+                          'sign-in will come after Firebase is added.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: muted),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.mail, size: 18),
+                            label: const Text(
+                              'Sign in with Gmail',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () => widget.onFinish(
+                              _nameCtrl.text,
+                              _emailCtrl.text,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  isDark ? AppTheme.goldDark : AppTheme.gold,
+                              foregroundColor: const Color(0xFF1A2E28),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 15,
+                              ),
+                              elevation: 8,
+                              shadowColor:
+                                  AppTheme.gold.withValues(alpha: 0.6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: widget.onSkip,
+                          child: const Text('Skip'),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: widget.onSkip,
-                    child: const Text('Skip'),
                   ),
                 ],
               ),
@@ -777,10 +906,13 @@ class _LoginPageState extends State<_LoginPage>
   /// Picking one sets the language through the same `_language` state
   /// the 8 quick chips use.
   void _openTranslateSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor:
+          isDark ? AppTheme.nightCard : AppTheme.cardLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -802,6 +934,11 @@ class _LoginPageState extends State<_LoginPage>
     double angle,
     double fontSize,
   ) {
+    // Demo orbit words: Amiri serif, gold — #8A6D1B on the light
+    // sand, #F0D488 after dark.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final wordColor =
+        isDark ? const Color(0xFFF0D488) : const Color(0xFF8A6D1B);
     final out = <Widget>[];
     for (var i = 0; i < words.length; i++) {
       final a = angle + i * 2 * math.pi / words.length;
@@ -816,7 +953,7 @@ class _LoginPageState extends State<_LoginPage>
               fontFamily: 'Amiri',
               fontSize: fontSize,
               fontWeight: FontWeight.bold,
-              color: AppTheme.emerald.withValues(alpha: 0.85),
+              color: wordColor,
             ),
           ),
         ),
@@ -852,6 +989,10 @@ class _TranslateSheetState extends State<_TranslateSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     final q = _query.trim().toLowerCase();
     final matches = q.isEmpty
         ? allLanguages
@@ -869,7 +1010,9 @@ class _TranslateSheetState extends State<_TranslateSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: isDark
+                  ? AppTheme.cardLineDark
+                  : AppTheme.cardLineLight,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -877,20 +1020,21 @@ class _TranslateSheetState extends State<_TranslateSheet> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
             child: Row(
               children: [
-                const Icon(Icons.translate, color: AppTheme.emerald),
+                Icon(Icons.translate, color: accent),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Translate — saari zubanein',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: ink,
                     ),
                   ),
                 ),
                 Text(
                   '${matches.length} / ${allLanguages.length}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
               ],
             ),
@@ -904,7 +1048,8 @@ class _TranslateSheetState extends State<_TranslateSheet> {
                 hintText: 'Search language...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor:
+                    isDark ? AppTheme.chipDark : AppTheme.chipLight,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -923,28 +1068,31 @@ class _TranslateSheetState extends State<_TranslateSheet> {
                       final selected = widget.current == label;
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: AppTheme.emerald
-                              .withValues(alpha: 0.12),
+                          backgroundColor: accent.withValues(alpha: 0.12),
                           child: Text(
                             lang.code.toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.emerald,
+                              color: accent,
                             ),
                           ),
                         ),
                         title: Text(
                           lang.native,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
+                            color: ink,
                           ),
                         ),
-                        subtitle: Text(lang.english),
+                        subtitle: Text(
+                          lang.english,
+                          style: TextStyle(color: muted),
+                        ),
                         trailing: selected
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check_circle,
-                                color: AppTheme.emerald,
+                                color: accent,
                               )
                             : null,
                         onTap: () => widget.onPick(label),

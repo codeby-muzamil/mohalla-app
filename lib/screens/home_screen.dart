@@ -6,10 +6,10 @@ import 'package:hijri/hijri_calendar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/data_service.dart';
+import '../services/location_service.dart';
 import '../services/prayer_service.dart';
 import '../services/settings_provider.dart';
 import '../theme/app_theme.dart';
@@ -19,28 +19,29 @@ import '../widgets/timings_editor.dart';
 
 /// Home: live next-prayer countdown, Hijri date, editable masjid photo,
 /// editable masjid timings (camera photo of the timings board as a
-/// reference), Jamia Masjid Khizra card, timezone chip, rotating
+/// reference), the user's own mosque card, location chip, rotating
 /// Ayat / Hadith / Dua of the day.
 ///
 /// HOME-BLANK ROOT CAUSE (Run 7, traced for real this time): the old
-/// code ran ALL prayer maths — `PrayerService.nowIn`,
+/// code ran ALL prayer maths — `DateTime.now`,
 /// `effectiveTimesFor`, `nextPrayerWith` — inside `build()`, on every
 /// 1-second timer tick. In release mode a throw anywhere in a widget's
 /// build (or in a child build the parent's try/catch cannot see)
 /// replaces that whole subtree with an empty box — and the old
 /// try/catch only wrapped the SYNCHRONOUS construction of the widget
 /// tree, so a throw in a later child build, or in the catch-block's
-/// own fallback (`PrayerService.nowIn(city)` again when `_lastNow`
+/// own fallback (`DateTime.now()` again when `_lastNow`
 /// was still null), left the tab blank with no error card ever
 /// appearing. The fix is structural, not another try/catch: ALL prayer
-/// maths now runs in `_refreshTimes()` (initState + settings listener
-/// + once a minute), and `build()` ONLY renders already-computed
+/// maths now runs in `_refreshTimes()` (initState + settings/location
+/// listener + once a minute), and `build()` ONLY renders already-computed
 /// state. `build()` can no longer throw from prayer maths, the first
 /// frame already has data (computed synchronously in initState), and
 /// when there is genuinely no data the screen shows a VISIBLE loading
-/// card or a VISIBLE error card with retry — never a blank tab.
+/// card, a VISIBLE error card, or a VISIBLE location-required card
+/// with a button — never a blank tab.
 class HomeScreen extends StatefulWidget {
-  final VoidCallback onOpenTimezones;
+  final VoidCallback onOpenLocation;
   final VoidCallback onOpenQibla;
   final void Function(int surah, int ayah) onOpenAyah;
 
@@ -52,7 +53,7 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({
     super.key,
-    required this.onOpenTimezones,
+    required this.onOpenLocation,
     required this.onOpenQibla,
     required this.onOpenAyah,
     required this.onOpenTool,
@@ -71,11 +72,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // Prayer data, computed OUTSIDE build() (see class doc). build()
   // only reads these fields, so it can never throw from prayer maths.
   // Last-good values stay on screen when a recompute fails.
-  tz.TZDateTime? _now;
-  Map<String, tz.TZDateTime>? _times;
-  MapEntry<String, tz.TZDateTime>? _next;
+  DateTime? _now;
+  Map<String, DateTime>? _times;
+  MapEntry<String, DateTime>? _next;
   int? _lastMinute;
   String? _timesError;
+
+  /// True when there is no GPS location yet — Home shows the
+  /// location-required card instead of prayer data.
+  bool _noLocation = false;
 
   static const _hijriMonths = [
     'Muharram',
@@ -99,20 +104,29 @@ class _HomeScreenState extends State<HomeScreen> {
     // First frame already has prayer data: computed synchronously
     // here, before build() ever runs.
     _refreshTimes(notify: false);
-    // Recompute when the city / masjid timings / toggles change.
+    // Recompute when the location / method / masjid timings change.
     context.read<SettingsProvider>().addListener(_onSettingsChanged);
+    context.read<LocationService>().addListener(_onLocationChanged);
     // Tick the countdown clock every second; prayer data itself is
     // only recomputed when the minute changes (cheap) or missing.
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
-  void _onSettingsChanged() => _refreshTimes();
+  void _onSettingsChanged() {
+    // A Hijri adjustment change must refresh the header date too.
+    _updateHijri();
+    _refreshTimes();
+  }
+
+  void _onLocationChanged() => _refreshTimes();
 
   void _tick() {
     if (!mounted) return;
+    // No GPS yet — nothing on screen ticks; the location listener
+    // refreshes the moment a fix arrives.
+    if (_noLocation) return;
     try {
-      final now =
-          PrayerService.nowIn(context.read<SettingsProvider>().city);
+      final now = DateTime.now();
       if (_times == null || now.minute != _lastMinute) {
         _refreshTimes(now: now);
       } else {
@@ -120,34 +134,52 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _now = now);
       }
     } catch (_) {
-      // nowIn cannot throw (Karachi fallback), but the 1s tick must
-      // never take Home down: keep last-good data on screen.
+      // The 1s tick must never take Home down: keep last-good data
+      // on screen.
     }
   }
 
   /// Compute prayer data into state. Never throws out of here: a
   /// failure keeps the last-good values and records the error, so the
   /// screen shows stale data + a warning strip instead of blank.
-  void _refreshTimes({tz.TZDateTime? now, bool notify = true}) {
+  /// With no GPS location yet, clears the prayer data so the
+  /// location-required card shows instead.
+  void _refreshTimes({DateTime? now, bool notify = true}) {
     final settings = context.read<SettingsProvider>();
-    final city = settings.city;
+    final coords = context.read<LocationService>().current;
+    if (coords == null) {
+      _now = null;
+      _times = null;
+      _next = null;
+      _timesError = null;
+      _noLocation = true;
+      if (notify && mounted) setState(() {});
+      return;
+    }
     try {
-      final n = now ?? PrayerService.nowIn(city);
+      final n = now ?? DateTime.now();
       final t = PrayerService.effectiveTimesFor(
-        city,
+        coords.latitude,
+        coords.longitude,
         DateTime(n.year, n.month, n.day),
-        settings.masjidTimings,
+        method: settings.calculationMethod,
+        madhab: settings.madhab,
+        custom: settings.masjidTimings,
       );
       final nx = PrayerService.nextPrayerWith(
-        city,
+        coords.latitude,
+        coords.longitude,
         n,
-        settings.masjidTimings,
+        method: settings.calculationMethod,
+        madhab: settings.madhab,
+        custom: settings.masjidTimings,
       );
       _now = n;
       _times = t;
       _next = nx;
       _lastMinute = n.minute;
       _timesError = null;
+      _noLocation = false;
     } catch (e) {
       _timesError = e.toString();
     }
@@ -156,7 +188,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _updateHijri() {
     try {
-      final h = HijriCalendar.now();
+      // The Hijri date is shifted by the user's Settings adjustment
+      // (-1 / 0 / +1 day): the shift is applied to the Gregorian date
+      // before conversion, so the Hijri date moves by the same days.
+      final shift = context.read<SettingsProvider>().hijriAdjustment;
+      final h = HijriCalendar.fromDate(
+        DateTime.now().add(Duration(days: shift)),
+      );
       _hijriToday =
           '${h.hDay} ${_hijriMonths[h.hMonth - 1]} ${h.hYear} AH';
     } catch (_) {
@@ -174,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _timer?.cancel();
     context.read<SettingsProvider>().removeListener(_onSettingsChanged);
+    context.read<LocationService>().removeListener(_onLocationChanged);
     super.dispose();
   }
 
@@ -239,18 +278,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Visible error state (never a blank screen) with a retry button.
   Widget _buildErrorView(BuildContext context, String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   Icons.error_outline,
                   size: 44,
-                  color: AppTheme.emerald,
+                  color: isDark ? AppTheme.goldDark : AppTheme.emerald,
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -264,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
                 const SizedBox(height: 14),
                 ElevatedButton.icon(
@@ -275,6 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _next = null;
                     _now = null;
                     _timesError = null;
+                    _noLocation = false;
                     _refreshTimes();
                   },
                 ),
@@ -290,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// is being computed for the very first time.
   Widget _buildLoadingView() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: const [
         Card(
           child: Padding(
@@ -313,9 +355,83 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Visible location-required state (never a blank screen) when
+  /// there is no GPS location yet.
+  Widget _buildLocationView(BuildContext context) {
+    final location = context.read<LocationService>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.location_off,
+                  size: 44,
+                  color: isDark ? AppTheme.goldDark : AppTheme.emerald,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Location is needed for prayer times',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  location.message.isNotEmpty
+                      ? location.message
+                      : 'Allow location permission so the app can work out prayer times, Qibla and nearby mosques from where you are.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Denied forever: asking again shows nothing —
+                    // the only fix is the phone's Settings page.
+                    if (location.status ==
+                        LocationStatus.permissionDeniedForever)
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.settings, size: 18),
+                        label: const Text('Open Settings'),
+                        onPressed: () => location.openSettings(),
+                      )
+                    else
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.my_location, size: 18),
+                        label: const Text('Enable location'),
+                        onPressed: () => location.refresh(),
+                      ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: widget.onOpenLocation,
+                      child: const Text('My Location'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildHome(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
-    final city = settings.city;
+    final location = context.watch<LocationService>();
+    // No GPS location yet: show a visible state, never a blank tab.
+    if (_noLocation) {
+      return _buildLocationView(context);
+    }
     // No data yet: show a visible state, never a blank tab. (The
     // first frame normally already has data — see initState.)
     if (_times == null || _next == null || _now == null) {
@@ -327,14 +443,46 @@ class _HomeScreenState extends State<HomeScreen> {
     final times = _times!;
     final next = _next!;
     final now = _now!;
+    final coords = location.current;
     // The user's own masjid times (if set in Settings / here) override
     // the calculated times — countdown, table and Azan all follow them.
     final remaining = next.value.difference(now);
     final isFriday = now.weekday == DateTime.friday;
+    // Demo v13 tokens: every colour below has a light AND a dark value.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
+        // Demo home-head: greeting 13px at .85 opacity, name 16px
+        // bold. Home shows ONLY "Assalamu Alaikum," — NO time-of-day
+        // greeting here (time greeting is Login-only).
+        Text(
+          'Assalamu Alaikum,',
+          style: TextStyle(
+            fontSize: 13,
+            color: muted.withValues(alpha: 0.85),
+          ),
+        ),
+        if (settings.profileName.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text(
+              settings.profileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: ink,
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
         // Shown when the prayer maths failed but last-good data is
         // on screen — the user sees WHY instead of a silent blank.
         if (_timesError != null)
@@ -343,15 +491,17 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(10),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.amber.shade100,
+              color: isDark
+                  ? const Color(0xFF3A2F10)
+                  : Colors.amber.shade100,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber),
+              border: Border.all(color: gold.withValues(alpha: 0.6)),
             ),
-            child: const Text(
+            child: Text(
               'Prayer timings could not be recalculated — showing old '
-              'timings. Check the city or mosque timings in Settings.',
+              'timings. Check the mosque timings in Settings.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: ink),
             ),
           ),
         // ---- Masjid photo header (editable) ----
@@ -380,8 +530,8 @@ class _HomeScreenState extends State<HomeScreen> {
               bottom: 10,
               child: FloatingActionButton.small(
                 heroTag: 'masjid_photo',
-                backgroundColor: AppTheme.gold,
-                foregroundColor: AppTheme.ink,
+                backgroundColor: isDark ? AppTheme.goldDark : AppTheme.gold,
+                foregroundColor: const Color(0xFF1A2E28),
                 onPressed: _showPhotoSheet,
                 child: const Icon(Icons.camera_alt),
               ),
@@ -413,18 +563,18 @@ class _HomeScreenState extends State<HomeScreen> {
         // ---- Hijri date, prominent ----
         PressableCard(
           gradientBorder: true,
-          onTap: widget.onOpenTimezones,
+          onTap: widget.onOpenLocation,
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withValues(alpha: 0.12),
+                  color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.calendar_month,
-                  color: AppTheme.emerald,
+                  color: accent,
                 ),
               ),
               const SizedBox(width: 12),
@@ -436,9 +586,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       _hijriToday.isEmpty ? 'Hijri date' : _hijriToday,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 17,
+                        color: ink,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -446,28 +597,51 @@ class _HomeScreenState extends State<HomeScreen> {
                       _gregorianToday,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey,
+                        color: muted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              Icon(Icons.chevron_right, color: muted),
             ],
           ),
         ),
         const SizedBox(height: 12),
 
-        // ---- Timezone chip (full width) ----
+        // ---- Location chip (full width, demo pill: radius 999,
+        // 1.5px card-line border, chip surface) ----
         InkWell(
-          onTap: widget.onOpenTimezones,
+          onTap: widget.onOpenLocation,
+          borderRadius: BorderRadius.circular(999),
           child: Chip(
-            avatar: const Icon(Icons.public, size: 16),
+            avatar: Icon(Icons.my_location, size: 16, color: accent),
             label: Text(
-              '${city.name} • ${city.timeZone}',
+              coords == null
+                  ? 'Locating...'
+                  : coords.fromCache
+                      ? '${coords.displayName} • last known location'
+                      : coords.displayName,
               overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ink,
+              ),
+            ),
+            backgroundColor:
+                isDark ? AppTheme.chipDark : AppTheme.chipLight,
+            side: BorderSide(
+              color: isDark
+                  ? AppTheme.cardLineDark
+                  : AppTheme.cardLineLight,
+              width: 1.5,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 7,
             ),
           ),
         ),
@@ -483,13 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
               end: Alignment.bottomRight,
               colors: [AppTheme.goldLight, AppTheme.gold, AppTheme.emerald],
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 14,
-                offset: Offset(0, 6),
-              ),
-            ],
+            boxShadow: [AppTheme.cardShadow(isDark)],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
@@ -582,18 +750,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "Today's prayer times",
+                    // Demo .sec-title: 13px bold, uppercase, gold,
+                    // letter-spacing 1.1.
+                    Text(
+                      "Today's prayer times".toUpperCase(),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 13,
+                        letterSpacing: 1.1,
+                        color: gold,
                       ),
                     ),
                     Row(
                       children: [
                         IconButton(
                           tooltip: 'Edit timings',
-                          icon: const Icon(Icons.edit, size: 20),
+                          icon: Icon(Icons.edit, size: 20, color: muted),
                           onPressed: () => showMasjidTimingsEditor(context),
                         ),
                         IconButton(
@@ -602,8 +774,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icons.notifications_active,
                             size: 20,
                             color: settings.notify['fajr'] == true
-                                ? AppTheme.emerald
-                                : Colors.grey,
+                                ? accent
+                                : muted,
                           ),
                           onPressed: () {
                             final on = settings.notify['fajr'] == true;
@@ -616,10 +788,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                const Text(
-                  'Calculated on-device (Karachi method, Hanafi Asr). '
+                Text(
+                  'Calculated on-device (${settings.calculationMethodLabel} method, '
+                  '${settings.madhabLabel} Asr). '
                   'If you edit your mosque\'s congregation timings, those are shown.',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(fontSize: 11, color: muted),
                 ),
                 const SizedBox(height: 6),
                 for (final key in [
@@ -642,8 +815,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // ---- Jamia Masjid Khizra (real listing, unverified) ----
+        // ---- The user's own mosque ----
         // Shown only after the user sets their own mosque name.
+        // Times below are the effective times (own mosque timings
+        // when set, otherwise the calculated times) + Qibla from GPS.
         if (settings.masjidName.isNotEmpty)
           Card(
           child: Padding(
@@ -651,23 +826,33 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Jamia Masjid Khizra — Hyderabad',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  settings.masjidName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: ink,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Azan times from the jamaat360.com listing (NOT the mosque\'s '
-                  'verified congregation times — "Awaiting Verification").',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                Text(
+                  settings.masjidTimings.isNotEmpty
+                      ? 'Your mosque timings (set by you in Settings).'
+                      : 'Calculated timings for your location — set your mosque\'s congregation timings in Settings to show them here.',
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
                 const SizedBox(height: 8),
-                _khizraRow('Fajr', '05:21 AM'),
-                _khizraRow('Dhuhr', '12:11 PM'),
-                _khizraRow('Asr', '04:04 PM'),
-                _khizraRow('Maghrib', '05:40 PM'),
-                _khizraRow('Isha', '06:59 PM'),
-                _khizraRow('Qibla', '267° (West)'),
+                _masjidRow('Fajr', PrayerService.formatTime(times['fajr']!)),
+                _masjidRow('Dhuhr', PrayerService.formatTime(times['dhuhr']!)),
+                _masjidRow('Asr', PrayerService.formatTime(times['asr']!)),
+                _masjidRow('Maghrib', PrayerService.formatTime(times['maghrib']!)),
+                _masjidRow('Isha', PrayerService.formatTime(times['isha']!)),
+                _masjidRow(
+                  'Qibla',
+                  coords == null
+                      ? '—'
+                      : '${PrayerService.qiblaBearing(coords.latitude, coords.longitude).toStringAsFixed(0)}°',
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -676,7 +861,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: const Text('View on Maps'),
                       onPressed: () async {
                         final uri = Uri.parse(
-                          'https://www.google.com/maps/search/?api=1&query=Jamia+Masjid+Khizra+Hyderabad+Sindh',
+                          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('${settings.masjidName} ${coords?.displayName ?? ''}')}',
                         );
                         await launchUrl(
                           uri,
@@ -699,7 +884,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
 
         // ---- Daily rotation cards ----
-        const SectionTitle(title: "Today's Deen"),
+        const _HomeSectionTitle(title: "Today's Deen"),
         _DailyCards(onOpenAyah: widget.onOpenAyah),
       ],
     );
@@ -707,15 +892,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _timeRow(
     String key,
-    dynamic time,
+    DateTime? time,
     String? manual,
     bool isNext,
   ) {
     // [time] already includes the user's own masjid time when set
     // (effectiveTimesFor) — [manual] only decides the "Jamaat" badge.
     // A missing time can never crash the row (Run 7: no `!` here).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final display =
-        time == null ? '--:--' : PrayerService.formatTime(time as dynamic);
+        time == null ? '--:--' : PrayerService.formatTime(time);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
       decoration: isNext
@@ -742,11 +928,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (manual != null)
-            const Padding(
-              padding: EdgeInsets.only(left: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
               child: Text(
                 'Congregation',
-                style: TextStyle(fontSize: 10, color: AppTheme.gold),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? AppTheme.goldDark : AppTheme.gold,
+                ),
               ),
             ),
         ],
@@ -754,7 +943,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _khizraRow(String label, String value) {
+  Widget _masjidRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -762,6 +951,32 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(child: Text(label)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+/// Demo `.sec-title`: 13px bold, uppercase, gold, letter-spacing 1.1,
+/// 16px top / 8px bottom margin. (common.dart's SectionTitle is the
+/// 20px screen-title style — not this one.)
+class _HomeSectionTitle extends StatelessWidget {
+  final String title;
+
+  const _HomeSectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.1,
+          color: isDark ? AppTheme.goldDark : AppTheme.gold,
+        ),
       ),
     );
   }
@@ -781,6 +996,10 @@ class _Shortcut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Demo v13: emerald icon tile by day, gold icon tile after dark
+    // (dark emerald is unreadable on the dark card).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return Expanded(
       child: PressableCard(
         onTap: onTap,
@@ -790,10 +1009,10 @@ class _Shortcut extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withValues(alpha: 0.12),
+                color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppTheme.emerald, size: 22),
+              child: Icon(icon, color: accent, size: 22),
             ),
             const SizedBox(height: 6),
             Text(
@@ -875,6 +1094,9 @@ class _DailyCardsState extends State<_DailyCards> {
   @override
   Widget build(BuildContext context) {
     final day = DateTime.now().difference(DateTime(2026, 1, 1)).inDays;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return FutureBuilder<List<dynamic>>(
       future: _future,
       builder: (context, snap) {
@@ -893,9 +1115,9 @@ class _DailyCardsState extends State<_DailyCards> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Could not open the Dua and Hadith data.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: muted),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
@@ -942,16 +1164,16 @@ class _DailyCardsState extends State<_DailyCards> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withValues(alpha: 0.12),
+                      color: accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.menu_book,
-                      color: AppTheme.emerald,
+                      color: accent,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -965,7 +1187,7 @@ class _DailyCardsState extends State<_DailyCards> {
                           'It is virtuous to recite it after prayer.',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(fontSize: 12, color: muted),
                         ),
                       ],
                     ),
@@ -983,12 +1205,12 @@ class _DailyCardsState extends State<_DailyCards> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.emerald.withValues(alpha: 0.12),
+                        color: accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.favorite,
-                        color: AppTheme.emerald,
+                        color: accent,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1005,9 +1227,9 @@ class _DailyCardsState extends State<_DailyCards> {
                             '${dua.title} — ${dua.reference}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: muted,
                             ),
                           ),
                         ],
@@ -1025,12 +1247,12 @@ class _DailyCardsState extends State<_DailyCards> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.emerald.withValues(alpha: 0.12),
+                        color: accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.book,
-                        color: AppTheme.emerald,
+                        color: accent,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1047,9 +1269,9 @@ class _DailyCardsState extends State<_DailyCards> {
                             '${hadith.book} ${hadith.number} — ${hadith.topic}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: muted,
                             ),
                           ),
                         ],

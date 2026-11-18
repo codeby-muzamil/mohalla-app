@@ -1,18 +1,23 @@
 import 'dart:convert';
 
+import 'package:adhan/adhan.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../models/city.dart';
 
 /// All user settings in one place, persisted with SharedPreferences.
 /// Everything in here is stored ON THE PHONE ONLY — nothing is uploaded
 /// anywhere (there is no backend until Firebase is added, see BUILD_NOTES).
+///
+/// LOCATION: there is no city any more — prayer times come from the
+/// phone's GPS location (LocationService). Settings only holds the
+/// calculation METHOD and the Asr madhab, which the user picks here.
 class SettingsProvider extends ChangeNotifier {
   static const _kDark = 'dark_mode';
   static const _kElder = 'elder_mode';
-  static const _kCity = 'city_json';
-  static const _kAutoTz = 'auto_timezone';
+  static const _kMethod = 'calculation_method';
+  static const _kMadhab = 'asr_madhab';
+  static const _kHijriAdj = 'hijri_adjustment';
+  static const _kGeminiKey = 'gemini_api_key';
   static const _kVoice = 'muezzin_voice';
   static const _kReminder = 'reminder_minutes';
   static const _kNotifPrefix = 'notify_';
@@ -36,8 +41,115 @@ class SettingsProvider extends ChangeNotifier {
 
   bool darkMode = false;
   bool elderMode = false;
-  CityPreset city = presetCities.first; // Hyderabad default
-  bool autoTimezone = false;
+
+  /// Prayer calculation method id (see [calculationMethods]).
+  /// Default 'karachi' (University of Islamic Sciences, Karachi).
+  String calculationMethodId = 'karachi';
+
+  /// Asr madhab id: 'hanafi' or 'shafi'. Default 'hanafi'.
+  String madhabId = 'hanafi';
+
+  /// Hijri date adjustment in days: -1, 0 or +1 (default 0). The
+  /// Hijri date comes from the phone's Islamic calendar, but moon
+  /// sighting can shift a date by a day vs the calculation — the
+  /// user picks the shift in Settings and it applies everywhere
+  /// the Hijri date is shown (Home header + calendar).
+  int hijriAdjustment = 0;
+
+  /// The user's own Gemini API key, pasted in Settings (AI Friend).
+  /// Stored ONLY on this phone (SharedPreferences) — never uploaded,
+  /// never written in source, never baked into the APK build. It is
+  /// used in preference to the --dart-define key. Empty = no key.
+  /// Note the honest limit: anyone with the phone can read a key
+  /// stored on it, so this is for the owner's own key only.
+  String geminiApiKey = '';
+
+  /// The saved key, masked for display — only the last 4 characters
+  /// are ever shown, never the full key, and the key is never logged.
+  String get geminiApiKeyMasked {
+    if (geminiApiKey.isEmpty) return '';
+    if (geminiApiKey.length <= 4) return '••••';
+    return '••••••••${geminiApiKey.substring(geminiApiKey.length - 4)}';
+  }
+
+  /// The 5 calculation methods offered in Settings (id, label,
+  /// description). Ids are stored; the adhan enum lives behind
+  /// [calculationMethod].
+  static const List<(String, String, String)> calculationMethods = [
+    (
+      'karachi',
+      'Karachi',
+      'University of Islamic Sciences, Karachi',
+    ),
+    (
+      'isna',
+      'ISNA (North America)',
+      'Islamic Society of North America',
+    ),
+    (
+      'mwl',
+      'Muslim World League',
+      'Muslim World League',
+    ),
+    (
+      'egypt',
+      'Egyptian',
+      'Egyptian General Authority of Survey',
+    ),
+    (
+      'makkah',
+      'Makkah (Umm al-Qura)',
+      'Umm al-Qura University, Makkah',
+    ),
+  ];
+
+  /// Asr options offered in Settings (id, label, description).
+  static const List<(String, String, String)> asrMadhabs = [
+    (
+      'hanafi',
+      'Hanafi',
+      'Asr starts when the shadow is twice the object length',
+    ),
+    (
+      'shafi',
+      'Shafi\'i',
+      'Asr starts when the shadow equals the object length',
+    ),
+  ];
+
+  /// The adhan calculation method for [calculationMethodId].
+  CalculationMethod get calculationMethod {
+    switch (calculationMethodId) {
+      case 'isna':
+        return CalculationMethod.north_america;
+      case 'mwl':
+        return CalculationMethod.muslim_world_league;
+      case 'egypt':
+        return CalculationMethod.egyptian;
+      case 'makkah':
+        return CalculationMethod.umm_al_qura;
+      case 'karachi':
+      default:
+        return CalculationMethod.karachi;
+    }
+  }
+
+  /// The adhan madhab for [madhabId].
+  Madhab get madhab =>
+      madhabId == 'shafi' ? Madhab.shafi : Madhab.hanafi;
+
+  /// Label of the selected calculation method (for notes + headers).
+  String get calculationMethodLabel => calculationMethods
+      .firstWhere(
+        (m) => m.$1 == calculationMethodId,
+        orElse: () => calculationMethods.first,
+      )
+      .$2;
+
+  /// Label of the selected Asr madhab ('Hanafi' / 'Shafi'i').
+  String get madhabLabel =>
+      madhabId == 'shafi' ? 'Shafi\'i' : 'Hanafi';
+
   String muezzinVoice = 'afasy';
   int reminderMinutes = 10; // 0 = no reminder, else 5 or 10
 
@@ -102,7 +214,15 @@ class SettingsProvider extends ChangeNotifier {
     final p = _prefs!;
     darkMode = p.getBool(_kDark) ?? false;
     elderMode = p.getBool(_kElder) ?? false;
-    autoTimezone = p.getBool(_kAutoTz) ?? false;
+    calculationMethodId = p.getString(_kMethod) ?? 'karachi';
+    if (!calculationMethods.any((m) => m.$1 == calculationMethodId)) {
+      calculationMethodId = 'karachi';
+    }
+    madhabId = p.getString(_kMadhab) ?? 'hanafi';
+    if (madhabId != 'hanafi' && madhabId != 'shafi') madhabId = 'hanafi';
+    hijriAdjustment = p.getInt(_kHijriAdj) ?? 0;
+    if (hijriAdjustment < -1 || hijriAdjustment > 1) hijriAdjustment = 0;
+    geminiApiKey = p.getString(_kGeminiKey) ?? '';
     muezzinVoice = p.getString(_kVoice) ?? 'afasy';
     reminderMinutes = p.getInt(_kReminder) ?? 10;
     for (final k in notify.keys) {
@@ -125,16 +245,6 @@ class SettingsProvider extends ChangeNotifier {
     lastRead = p.getString(_kLastRead) ?? '';
     mushafPage = p.getInt(_kMushafPage) ?? 1;
     if (mushafPage < 1 || mushafPage > 548) mushafPage = 1;
-    final cityJson = p.getString(_kCity);
-    if (cityJson != null) {
-      try {
-        city = CityPreset.fromJson(
-          jsonDecode(cityJson) as Map<String, dynamic>,
-        );
-      } catch (_) {
-        city = presetCities.first;
-      }
-    }
     final timingsJson = p.getString(_kMasjidTimings);
     if (timingsJson != null) {
       try {
@@ -152,7 +262,10 @@ class SettingsProvider extends ChangeNotifier {
     if (p == null) return;
     await p.setBool(_kDark, darkMode);
     await p.setBool(_kElder, elderMode);
-    await p.setBool(_kAutoTz, autoTimezone);
+    await p.setString(_kMethod, calculationMethodId);
+    await p.setString(_kMadhab, madhabId);
+    await p.setInt(_kHijriAdj, hijriAdjustment);
+    await p.setString(_kGeminiKey, geminiApiKey);
     await p.setString(_kVoice, muezzinVoice);
     await p.setInt(_kReminder, reminderMinutes);
     for (final e in notify.entries) {
@@ -178,7 +291,6 @@ class SettingsProvider extends ChangeNotifier {
     await p.setStringList(_kBookmarks, quranBookmarks.toList());
     await p.setString(_kLastRead, lastRead);
     await p.setInt(_kMushafPage, mushafPage);
-    await p.setString(_kCity, jsonEncode(city.toJson()));
     await p.setString(_kMasjidTimings, jsonEncode(masjidTimings));
   }
 
@@ -194,18 +306,32 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setCity(CityPreset c) {
-    city = c;
-    autoTimezone = false;
-    // A different city means different Jamaat times: clear the old
-    // masjid's manual timings so they are never shown for the new city.
-    masjidTimings = {};
+  void setCalculationMethod(String id) {
+    if (!calculationMethods.any((m) => m.$1 == id)) return;
+    calculationMethodId = id;
     _save();
     notifyListeners();
   }
 
-  void setAutoTimezone(bool v) {
-    autoTimezone = v;
+  void setMadhab(String id) {
+    if (id != 'hanafi' && id != 'shafi') return;
+    madhabId = id;
+    _save();
+    notifyListeners();
+  }
+
+  /// -1, 0 or +1. Anything else is ignored (clamped by init anyway).
+  void setHijriAdjustment(int v) {
+    if (v < -1 || v > 1) return;
+    hijriAdjustment = v;
+    _save();
+    notifyListeners();
+  }
+
+  /// Save (or clear with '') the user's own Gemini API key. The
+  /// value is trimmed; an empty key means "no key" (offline answers).
+  void setGeminiApiKey(String v) {
+    geminiApiKey = v.trim();
     _save();
     notifyListeners();
   }

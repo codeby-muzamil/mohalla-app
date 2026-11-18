@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/data_service.dart';
+import '../theme/app_theme.dart';
 
 /// Hadith Library: verified hadiths (Sahih al-Bukhari / Sahih Muslim),
 /// Arabic + English (+ Urdu where verified), with book + number,
@@ -30,6 +31,8 @@ class _HadithScreenState extends State<HadithScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     return FutureBuilder<List<Hadith>>(
       future: DataService.hadiths(),
       builder: (context, snap) {
@@ -60,14 +63,13 @@ class _HadithScreenState extends State<HadithScreen> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: Column(
                 children: [
                   TextField(
                     decoration: const InputDecoration(
                       hintText: 'Search hadith (word or number)...',
                       prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
                     ),
                     onChanged: (v) => setState(() => _query = v),
                   ),
@@ -89,24 +91,27 @@ class _HadithScreenState extends State<HadithScreen> {
                     ),
                   ),
                   Text(
-                    '${shown.length} hadiths — all verified from sunnah.com / hadith-api.',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    '${shown.length} HADITHS — ALL VERIFIED FROM SUNNAH.COM / HADITH-API.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                      color: gold,
+                    ),
                   ),
                 ],
               ),
             ),
             Expanded(
               child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 92),
                 itemCount: shown.length,
                 itemBuilder: (context, i) {
                   final h = shown[i];
                   return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
+                    margin: const EdgeInsets.only(bottom: 12),
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

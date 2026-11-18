@@ -26,6 +26,22 @@ android {
         versionName = "0.1.0"
     }
 
+    // Per-ABI APK split (2026-11-18): one fat ~70 MB APK becomes
+    // three ~25 MB APKs (armeabi-v7a, arm64-v8a, x86_64). No universal
+    // APK — the user installs the one matching the phone (arm64-v8a
+    // for the Tecno SPARK 30 Pro). `flutter build apk --release`
+    // now outputs build/app/outputs/flutter-apk/app-<abi>-release.apk
+    // — see BUILD_NOTES.md. Kotlin DSL: the properties are
+    // isEnable / isUniversalApk (Groovy: enable / universalApk).
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")

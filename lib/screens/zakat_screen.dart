@@ -79,8 +79,12 @@ class _ZakatScreenState extends State<ZakatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         const SectionTitle(
           title: 'Zakat Calculator',
@@ -129,9 +133,9 @@ class _ZakatScreenState extends State<ZakatScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           "Enter today's market rate (from the bullion market / news).",
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: muted),
         ),
         const SizedBox(height: 12),
         GoldButton(
@@ -145,9 +149,9 @@ class _ZakatScreenState extends State<ZakatScreen> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.5),
+                  color: gold.withValues(alpha: 0.5),
                 ),
               ),
               child: Column(
@@ -158,13 +162,12 @@ class _ZakatScreenState extends State<ZakatScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color:
-                              AppTheme.emerald.withValues(alpha: 0.12),
+                          color: accent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.calculate,
-                          color: AppTheme.emerald,
+                          color: accent,
                           size: 20,
                         ),
                       ),
@@ -187,10 +190,10 @@ class _ZakatScreenState extends State<ZakatScreen> {
                       padding: const EdgeInsets.only(top: 10),
                       child: Text(
                         'Zakat: Rs ${_zakat!.toStringAsFixed(0)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.emerald,
+                          color: gold,
                         ),
                       ),
                     ),
@@ -222,7 +225,6 @@ class _ZakatScreenState extends State<ZakatScreen> {
         decoration: InputDecoration(
           labelText: label,
           helperText: helper,
-          border: const OutlineInputBorder(),
         ),
       ),
     );
@@ -243,9 +245,11 @@ class _FieldGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -254,10 +258,10 @@ class _FieldGroup extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.emerald.withValues(alpha: 0.12),
+                    color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: AppTheme.emerald, size: 20),
+                  child: Icon(icon, color: accent, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

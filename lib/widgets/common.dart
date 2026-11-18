@@ -9,17 +9,20 @@ class SampleBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Demo v13: gold is #A97F14 by day, #D9A441 after dark.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.gold.withValues(alpha: 0.2),
+        color: gold.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.gold),
+        border: Border.all(color: gold),
       ),
-      child: const Text(
+      child: Text(
         'SAMPLE — real data coming later',
         style: TextStyle(
-          color: AppTheme.gold,
+          color: gold,
           fontWeight: FontWeight.bold,
           fontSize: 11,
         ),
@@ -28,7 +31,8 @@ class SampleBanner extends StatelessWidget {
   }
 }
 
-/// Standard section heading with a gold underline.
+/// Standard section heading: 20px bold title with a gold underline
+/// (demo v13 screen titles; the gold underline is the demo's accent).
 class SectionTitle extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -37,22 +41,23 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final golds = isDark
+        ? const [AppTheme.goldDarkLight, AppTheme.goldDark]
+        : const [AppTheme.goldLight, AppTheme.gold];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         if (subtitle != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               subtitle!,
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).textTheme.bodySmall?.color,
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         Container(
@@ -60,13 +65,11 @@ class SectionTitle extends StatelessWidget {
           height: 3,
           width: 56,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.goldLight, AppTheme.gold],
-            ),
+            gradient: LinearGradient(colors: golds),
             borderRadius: BorderRadius.circular(2),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.gold.withValues(alpha: 0.4),
+                color: golds[1].withValues(alpha: 0.4),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
@@ -97,13 +100,15 @@ class NumberBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: radius * 2,
       height: radius * 2,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: background ?? AppTheme.emerald,
+        color: background ??
+            (isDark ? AppTheme.emeraldLight : AppTheme.emerald),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.18),
@@ -145,7 +150,7 @@ class PressableCard extends StatefulWidget {
     this.padding = const EdgeInsets.all(14),
     this.color,
     this.gradientBorder = false,
-    this.radius = 16,
+    this.radius = 20,
     this.glowOnHover = true,
   });
 
@@ -160,12 +165,15 @@ class _PressableCardState extends State<PressableCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Demo v13 card: #FBF7EA surface by day, #0F2A22 after dark,
+    // radius 20, soft deep shadow, 1px card-line border.
     final baseColor = widget.color ??
-        (isDark ? AppTheme.nightCard : Colors.white);
+        (isDark ? AppTheme.nightCard : AppTheme.cardLight);
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     final shadow = _hovered
         ? [
             BoxShadow(
-              color: AppTheme.gold.withValues(alpha: 0.45),
+              color: gold.withValues(alpha: 0.45),
               blurRadius: 18,
               spreadRadius: 1,
               offset: const Offset(0, 6),
@@ -176,13 +184,7 @@ class _PressableCardState extends State<PressableCard> {
               offset: Offset(0, 4),
             ),
           ]
-        : const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(0, 3),
-            ),
-          ];
+        : [AppTheme.cardShadow(isDark)];
     final inner = AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       transform: Matrix4.translationValues(
@@ -193,6 +195,10 @@ class _PressableCardState extends State<PressableCard> {
       decoration: BoxDecoration(
         color: baseColor,
         borderRadius: BorderRadius.circular(widget.radius),
+        border: Border.all(
+          color: isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight,
+          width: 1,
+        ),
         boxShadow: shadow,
       ),
       child: Material(
@@ -209,14 +215,20 @@ class _PressableCardState extends State<PressableCard> {
             padding: const EdgeInsets.all(1.5),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.radius + 1.5),
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.goldLight,
-                  AppTheme.gold,
-                  AppTheme.emerald,
-                ],
+                colors: isDark
+                    ? const [
+                        AppTheme.goldDarkLight,
+                        AppTheme.goldDark,
+                        AppTheme.emeraldLight,
+                      ]
+                    : const [
+                        AppTheme.goldLight,
+                        AppTheme.gold,
+                        AppTheme.emerald,
+                      ],
               ),
             ),
             child: inner,
@@ -261,6 +273,11 @@ class ToolCard extends StatelessWidget {
     // than a 1.35-ratio cell on a narrow phone. Title/subtitle both
     // ellipsize and the subtitle is capped at 2 lines, so the card
     // can never overflow its cell, even at 1.3x elder-mode scaling.
+    // Demo v13: emerald icon tile by day, gold icon tile after dark
+    // (dark emerald is unreadable on the dark card).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return PressableCard(
       onTap: onTap,
       gradientBorder: true,
@@ -272,10 +289,10 @@ class ToolCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.emerald.withValues(alpha: 0.12),
+              color: accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppTheme.emerald, size: 24),
+            child: Icon(icon, color: accent, size: 24),
           ),
           const SizedBox(height: 8),
           Text(
@@ -293,7 +310,7 @@ class ToolCard extends StatelessWidget {
               subtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: muted),
             ),
           ),
         ],
@@ -317,13 +334,15 @@ class GoldButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Demo v13 gold button: gold bg, #1A2E28 text, radius 14.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: icon != null ? Icon(icon, size: 18) : const SizedBox.shrink(),
       label: Text(label),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.gold,
-        foregroundColor: AppTheme.ink,
+        backgroundColor: isDark ? AppTheme.goldDark : AppTheme.gold,
+        foregroundColor: const Color(0xFF1A2E28),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       ),
     );
@@ -338,14 +357,15 @@ class SampleNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontStyle: FontStyle.italic,
-          color: Colors.grey,
+          color: isDark ? AppTheme.mutedDark : AppTheme.mutedLight,
         ),
       ),
     );

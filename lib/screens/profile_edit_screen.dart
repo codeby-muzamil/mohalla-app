@@ -120,7 +120,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           data: Theme.of(context).copyWith(
             colorScheme: isDark
                 ? const ColorScheme.dark(
-                    primary: AppTheme.emerald,
+                    primary: AppTheme.emeraldLight,
                     onPrimary: Colors.white,
                   )
                 : const ColorScheme.light(
@@ -149,24 +149,28 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   Widget _genderChip(String value, String label) {
     final selected = _gender == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardLine =
+        isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight;
+    final selectedBg = isDark ? AppTheme.goldDark : AppTheme.emerald;
     return GestureDetector(
       onTap: () => setState(() => _gender = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppTheme.emerald : Colors.transparent,
+          color: selected ? selectedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: selected ? AppTheme.emerald : Colors.grey.shade400,
-            width: selected ? 2 : 1,
+            color: selected ? selectedBg : cardLine,
+            width: selected ? 2 : 1.5,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: selected
-                ? Colors.white
+                ? (isDark ? const Color(0xFF1A2E28) : Colors.white)
                 : Theme.of(context).textTheme.bodyMedium?.color,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -180,11 +184,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final settings = context.watch<SettingsProvider>();
     final nameEmpty = _nameCtrl.text.trim().isEmpty;
     final name = _nameCtrl.text.trim();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    final goldIcon =
+        isDark ? AppTheme.goldDarkLight : AppTheme.gold;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
         children: [
           const SizedBox(height: 8),
           Center(
@@ -193,24 +201,25 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               children: [
                 CircleAvatar(
                   radius: 60,
-                  backgroundColor: AppTheme.emerald,
+                  backgroundColor:
+                      isDark ? AppTheme.emeraldLight : AppTheme.emerald,
                   backgroundImage: _photoPath.isNotEmpty
                       ? FileImage(File(_photoPath))
                       : null,
                   child: _photoPath.isNotEmpty
                       ? null
                       : (name.isEmpty
-                          ? const Icon(
+                          ? Icon(
                               Icons.person,
                               size: 56,
-                              color: AppTheme.gold,
+                              color: goldIcon,
                             )
                           : Text(
                               _initials(name),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 40,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.gold,
+                                color: goldIcon,
                               ),
                             )),
                 ),
@@ -221,14 +230,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     onTap: _showPhotoSheet,
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.gold,
+                        color:
+                            isDark ? AppTheme.goldDark : AppTheme.gold,
                       ),
                       child: const Icon(
                         Icons.camera_alt,
                         size: 20,
-                        color: AppTheme.ink,
+                        color: Color(0xFF1A2E28),
                       ),
                     ),
                   ),
@@ -243,7 +253,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: 'Display name',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 20),
@@ -260,7 +269,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SectionTitle(title: 'Date of birth'),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.calendar_month),
+              leading: Icon(Icons.calendar_month, color: accent),
               title: Text(
                 _dob == null ? 'Not set' : _formatDate(_dob!),
               ),
@@ -277,7 +286,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SectionTitle(title: 'Email'),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.email),
+              leading: Icon(Icons.email, color: accent),
               title: Text(
                 settings.profileEmail.isEmpty
                     ? 'Not signed in'

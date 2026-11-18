@@ -52,15 +52,23 @@ class _AiScreenState extends State<AiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final chipBg = isDark ? AppTheme.chipDark : AppTheme.chipLight;
+    final cardLine = isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight;
+    final card = isDark ? AppTheme.nightCard : AppTheme.cardLight;
+    final userBubble = isDark ? AppTheme.emeraldLight : AppTheme.emerald;
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
           child: Row(
             children: [
               Icon(
                 GeminiService.hasKey ? Icons.check_circle : Icons.info,
-                color: GeminiService.hasKey ? Colors.green : AppTheme.gold,
+                color: GeminiService.hasKey ? userBubble : gold,
                 size: 18,
               ),
               const SizedBox(width: 6),
@@ -69,7 +77,7 @@ class _AiScreenState extends State<AiScreen> {
                   GeminiService.hasKey
                       ? 'Gemini connected — AI Friend is online.'
                       : 'Offline mode — no Gemini key set (see README).',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: muted),
                 ),
               ),
             ],
@@ -77,7 +85,7 @@ class _AiScreenState extends State<AiScreen> {
         ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             itemCount: _messages.length,
             itemBuilder: (context, i) {
               final m = _messages[i];
@@ -87,22 +95,26 @@ class _AiScreenState extends State<AiScreen> {
                     isUser ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 4),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.8,
                   ),
                   decoration: BoxDecoration(
-                    color: isUser
-                        ? AppTheme.emerald
-                        : Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(14),
+                    color: isUser ? userBubble : card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isUser
+                        ? null
+                        : Border.all(color: cardLine, width: 1),
+                    boxShadow: isUser ? null : [AppTheme.cardShadow(isDark)],
                   ),
                   child: Text(
                     m['text'] ?? '',
                     style: TextStyle(
-                      color: isUser
-                          ? Colors.white
-                          : Theme.of(context).textTheme.bodyMedium?.color,
+                      fontSize: 14,
+                      color: isUser ? const Color(0xFFF7F1E3) : ink,
                     ),
                   ),
                 ),
@@ -111,38 +123,80 @@ class _AiScreenState extends State<AiScreen> {
           ),
         ),
         if (_busy)
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: CircularProgressIndicator(),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: CircularProgressIndicator(color: gold),
           ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: _chips.map((c) {
               return ActionChip(
-                label: Text(c),
+                label: Text(
+                  c,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: ink,
+                  ),
+                ),
+                backgroundColor: chipBg,
+                side: BorderSide(color: cardLine, width: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.chipRadius,
+                  ),
+                ),
                 onPressed: () => _send(c),
               );
             }).toList(),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _controller,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: ink),
+                  decoration: InputDecoration(
                     hintText: 'Type your question...',
-                    border: OutlineInputBorder(),
+                    hintStyle: TextStyle(color: muted),
+                    filled: true,
+                    fillColor: chipBg,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.buttonRadius,
+                      ),
+                      borderSide: BorderSide(color: cardLine),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.buttonRadius,
+                      ),
+                      borderSide: BorderSide(color: cardLine),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.buttonRadius,
+                      ),
+                      borderSide: BorderSide(color: gold, width: 1.5),
+                    ),
                   ),
                   onSubmitted: _send,
                 ),
               ),
               const SizedBox(width: 8),
               FloatingActionButton.small(
+                backgroundColor: gold,
+                foregroundColor: const Color(0xFF1A2E28),
                 onPressed: () => _send(_controller.text),
                 child: const Icon(Icons.send),
               ),

@@ -38,11 +38,21 @@ class _LearnScreenState extends State<LearnScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return Column(
       children: [
         TabBar(
           controller: _tabs,
-          labelColor: Theme.of(context).colorScheme.primary,
+          labelColor: gold,
+          unselectedLabelColor: muted,
+          indicatorColor: gold,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
           tabs: const [
             Tab(text: 'How to Perform Wudu'),
             Tab(text: 'How to Pray'),
@@ -144,8 +154,14 @@ class _WuduStepsState extends State<_WuduSteps> {
   @override
   Widget build(BuildContext context) {
     final step = _wuduSteps[_step];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final arabicGold =
+        isDark ? AppTheme.arabicGold : AppTheme.arabicGreen;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         // Animated human figure (simple, respectful illustration).
         Center(
@@ -158,13 +174,17 @@ class _WuduStepsState extends State<_WuduSteps> {
         Text(
           step['title'] ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           step['body'] ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15),
+          style: TextStyle(fontSize: 15, color: muted),
         ),
         const SizedBox(height: 16),
         Row(
@@ -175,7 +195,10 @@ class _WuduStepsState extends State<_WuduSteps> {
               child: const Text('Previous'),
             ),
             const SizedBox(width: 12),
-            Text('Step ${_step + 1} / ${_wuduSteps.length}'),
+            Text(
+              'Step ${_step + 1} / ${_wuduSteps.length}',
+              style: TextStyle(fontWeight: FontWeight.w600, color: gold),
+            ),
             const SizedBox(width: 12),
             ElevatedButton(
               onPressed: _step < _wuduSteps.length - 1
@@ -191,11 +214,11 @@ class _WuduStepsState extends State<_WuduSteps> {
           future: DataService.duas(),
           builder: (context, snap) {
             if (snap.hasError) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
+              return Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
                   'Could not load data — close and reopen the app.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: muted),
                 ),
               );
             }
@@ -206,38 +229,39 @@ class _WuduStepsState extends State<_WuduSteps> {
                 .where((d) => d.category == 'wudu')
                 .toList();
             if (wuduDuas.isEmpty) {
-              return const Text(
+              return Text(
                 'Wudu duas are being verified — coming soon.',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: muted),
               );
             }
             return Column(
               children: wuduDuas
                   .map(
-                    (d) => Card(
-                      child: ListTile(
-                        title: Text(d.title),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              d.arabic,
-                              textDirection: TextDirection.rtl,
-                              style: const TextStyle(
-                                fontFamily: 'Amiri',
-                                fontSize: 20,
-                              ),
+                    (d) => _LearnCard(
+                      icon: Icons.menu_book,
+                      iconColor: gold,
+                      title: d.title,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            d.arabic,
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(
+                              fontFamily: 'Amiri',
+                              fontSize: 20,
+                              color: arabicGold,
                             ),
-                            Text(d.english),
-                            Text(
-                              d.reference,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                          ),
+                          Text(d.english, style: TextStyle(color: ink)),
+                          Text(
+                            d.reference,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: muted,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -269,8 +293,14 @@ class _NamazStepsState extends State<_NamazSteps> {
   @override
   Widget build(BuildContext context) {
     final step = _namazPositions[_step];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final arabicGold =
+        isDark ? AppTheme.arabicGold : AppTheme.arabicGreen;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 92),
       children: [
         Center(
           child: _AnimatedFigure(
@@ -282,13 +312,17 @@ class _NamazStepsState extends State<_NamazSteps> {
         Text(
           step['title'] ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           step['body'] ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15),
+          style: TextStyle(fontSize: 15, color: muted),
         ),
         const SizedBox(height: 16),
         Row(
@@ -299,7 +333,10 @@ class _NamazStepsState extends State<_NamazSteps> {
               child: const Text('Previous'),
             ),
             const SizedBox(width: 12),
-            Text('Position ${_step + 1} / ${_namazPositions.length}'),
+            Text(
+              'Position ${_step + 1} / ${_namazPositions.length}',
+              style: TextStyle(fontWeight: FontWeight.w600, color: gold),
+            ),
             const SizedBox(width: 12),
             ElevatedButton(
               onPressed: _step < _namazPositions.length - 1
@@ -315,11 +352,11 @@ class _NamazStepsState extends State<_NamazSteps> {
           future: DataService.salahTexts(),
           builder: (context, snap) {
             if (snap.hasError) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
+              return Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
                   'Could not load data — close and reopen the app.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: muted),
                 ),
               );
             }
@@ -327,47 +364,48 @@ class _NamazStepsState extends State<_NamazSteps> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snap.data!.isEmpty) {
-              return const Text(
+              return Text(
                 'Prayer duas are being verified — coming soon.',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: muted),
               );
             }
             return Column(
               children: snap.data!
                   .map(
-                    (t) => Card(
-                      child: ListTile(
-                        title: Text(t.step),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t.arabic,
-                              textDirection: TextDirection.rtl,
-                              style: const TextStyle(
-                                fontFamily: 'Amiri',
-                                fontSize: 20,
-                              ),
+                    (t) => _LearnCard(
+                      icon: Icons.record_voice_over,
+                      iconColor: gold,
+                      title: t.step,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.arabic,
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(
+                              fontFamily: 'Amiri',
+                              fontSize: 20,
+                              color: arabicGold,
                             ),
-                            if (t.englishIsTransliteration)
-                              const Text(
-                                'Roman transliteration:',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            Text(t.english),
+                          ),
+                          if (t.englishIsTransliteration)
                             Text(
-                              t.reference,
-                              style: const TextStyle(
+                              'Roman transliteration:',
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey,
+                                fontStyle: FontStyle.italic,
+                                color: muted,
                               ),
                             ),
-                          ],
-                        ),
+                          Text(t.english, style: TextStyle(color: ink)),
+                          Text(
+                            t.reference,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: muted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -399,27 +437,33 @@ class _PostNamazTasbihState extends State<_PostNamazTasbih> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     return Column(
       children: [
-        const Text(
+        Text(
           'Say Astaghfirullah 3x, then "Allahumma Antas-Salam...", '
           'then Ayat-ul-Kursi, then Tasbih-e-Fatima:',
-          style: TextStyle(fontSize: 13, color: Colors.grey),
+          style: TextStyle(fontSize: 13, color: muted),
         ),
         const SizedBox(height: 8),
         for (var i = 0; i < 3; i++)
-          Card(
-            child: ListTile(
-              title: Text(_labels[i]),
-              subtitle: Text('${_counts[i]} / ${_targets[i]}'),
-              trailing: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    if (_counts[i] < _targets[i]) _counts[i]++;
-                  });
-                },
-                child: const Text('Tap'),
-              ),
+          _LearnCard(
+            icon: Icons.touch_app,
+            iconColor: gold,
+            title: _labels[i],
+            subtitle: Text(
+              '${_counts[i]} / ${_targets[i]}',
+              style: TextStyle(fontSize: 13, color: muted),
+            ),
+            trailing: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  if (_counts[i] < _targets[i]) _counts[i]++;
+                });
+              },
+              child: const Text('Tap'),
             ),
           ),
         TextButton(
@@ -431,6 +475,78 @@ class _PostNamazTasbihState extends State<_PostNamazTasbih> {
           child: const Text('Reset'),
         ),
       ],
+    );
+  }
+}
+
+/// Demo `.learn-card`: row, surface, radius 20, shadow, padding
+/// 14×16, margin-bottom 10, icon tile left + title/subtitle.
+/// Visual only — the data and callbacks are unchanged.
+class _LearnCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final Widget subtitle;
+  final Widget? trailing;
+
+  const _LearnCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.nightCard : AppTheme.cardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight,
+        ),
+        boxShadow: [AppTheme.cardShadow(isDark)],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                subtitle,
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
+        ],
+      ),
     );
   }
 }
@@ -469,6 +585,12 @@ class _AnimatedFigureState extends State<_AnimatedFigure>
 
   @override
   Widget build(BuildContext context) {
+    // Dark mode: the light emerald border/tint is unreadable on the
+    // dark card, so the figure uses the gold accent after dark.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final color = isDark ? AppTheme.goldDark : widget.color;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
     return AnimatedBuilder(
       animation: _c,
       builder: (context, child) {
@@ -481,21 +603,24 @@ class _AnimatedFigureState extends State<_AnimatedFigure>
         width: 140,
         height: 180,
         decoration: BoxDecoration(
-          color: widget.color.withValues(alpha: 0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: widget.color, width: 2),
+          border: Border.all(color: color, width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 26,
-              backgroundColor: AppTheme.gold,
-              child: Icon(Icons.person, size: 30, color: Colors.white),
+              backgroundColor: gold,
+              child: const Icon(
+                Icons.person,
+                size: 30,
+                color: Color(0xFF1A2E28),
+              ),
             ),
             const SizedBox(height: 8),
-            const Icon(Icons.accessibility_new,
-                size: 48, color: AppTheme.emerald),
+            Icon(Icons.accessibility_new, size: 48, color: color),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -504,9 +629,10 @@ class _AnimatedFigureState extends State<_AnimatedFigure>
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
+                  color: ink,
                 ),
               ),
             ),
