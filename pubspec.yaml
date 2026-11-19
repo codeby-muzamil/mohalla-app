@@ -67,6 +67,8 @@ dependencies:
   provider: 6.1.5+1
   # Open Google Maps links for nearby mosques (no Maps API key needed).
   url_launcher: 6.3.0
+  # "Share app" on the More screen (native share sheet).
+  share_plus: ^10.0.0
   # Full map on the My Location screen (OpenStreetMap tiles, free —
   # no API key, no Google Cloud project). Versions verified on
   # pub.dev 2026-11-19: flutter_map 8.3.2 needs sdk >=3.6.0 and

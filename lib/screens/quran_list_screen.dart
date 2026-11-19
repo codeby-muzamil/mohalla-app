@@ -22,6 +22,8 @@ class _QuranListScreenState extends State<QuranListScreen> {
   String _query = '';
   bool _loading = true;
   int _juzFilter = 0; // 0 = all
+  // Demo v13 Quran: All / Makki / Madani filter (data: Meccan | Medinan).
+  String _revFilter = 'All';
   // Total downloaded Quran audio (all surahs). Loaded once when the
   // tab opens; the reader screen shows the live per-surah size.
   int _cachedAudioBytes = 0;
@@ -61,6 +63,9 @@ class _QuranListScreenState extends State<QuranListScreen> {
         final lastJuz = QuranService.juzOf(s.number, s.ayahs.length);
         if (firstJuz == 0 || lastJuz == 0) return false;
         if (_juzFilter < firstJuz || _juzFilter > lastJuz) return false;
+      }
+      if (_revFilter != 'All' && s.revelationType != _revFilter) {
+        return false;
       }
       if (_query.isEmpty) return true;
       final q = _query.toLowerCase();
@@ -233,9 +238,98 @@ class _QuranListScreenState extends State<QuranListScreen> {
                   ],
                 ),
               ),
+              // Demo v13 Quran: All / Makki / Madani filter chips.
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final entry in const [
+                      ('All', 'All'),
+                      ('Makki', 'Meccan'),
+                      ('Madani', 'Medinan'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(entry.$1),
+                          selected: _revFilter == entry.$2,
+                          backgroundColor: chipBg,
+                          selectedColor: gold.withValues(alpha: 0.25),
+                          labelStyle: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _revFilter == entry.$2 ? gold : ink,
+                          ),
+                          side: BorderSide(
+                            color: _revFilter == entry.$2 ? gold : cardLine,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          onSelected: (_) =>
+                              setState(() => _revFilter = entry.$2),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+        // Demo v13 Quran: saved bookmarks above the surah list.
+        if (settings.quranBookmarks.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'BOOKMARKS',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                  color: gold,
+                ),
+              ),
+            ),
+          ),
+        if (settings.quranBookmarks.isNotEmpty)
+          ...settings.quranBookmarks.map((key) {
+            final parts = key.split(':');
+            final sNum = int.tryParse(parts[0]) ?? 0;
+            final ayah =
+                parts.length > 1 ? int.tryParse(parts[1]) ?? 1 : 1;
+            final surah = QuranService.surahs.firstWhere(
+              (s) => s.number == sNum,
+              orElse: () => QuranService.surahs.first,
+            );
+            return Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              child: PressableCard(
+                padding: EdgeInsets.zero,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuranReaderScreen(
+                      surahNumber: surah.number,
+                      initialAyah: ayah,
+                    ),
+                  ),
+                ),
+                child: ListTile(
+                  leading: Icon(Icons.bookmark, color: gold),
+                  title: Text(
+                    'Surah ${surah.englishName} · Ayah $ayah',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, color: ink),
+                  ),
+                  trailing: Icon(Icons.chevron_right, color: muted),
+                ),
+              ),
+            );
+          }),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
           child: Align(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/settings_provider.dart';
 import '../theme/app_theme.dart';
@@ -12,6 +14,25 @@ class ZyadaScreen extends StatelessWidget {
   final void Function(String key) onOpen;
 
   const ZyadaScreen({super.key, required this.onOpen});
+
+  /// Play Store page (the app is not published yet — the link opens
+  /// the store page once it is; Share sends the same link).
+  static const _storeUrl =
+      'https://play.google.com/store/apps/details?id=com.mohalla.app';
+
+  static Future<void> _shareApp() async {
+    await Share.share(
+      'Get Mohalla — your mohalla, your mosque. Prayer times, Quran, '
+      'Qibla and duas, free for everyone.\n$_storeUrl',
+    );
+  }
+
+  static Future<void> _rateApp() async {
+    await launchUrl(
+      Uri.parse(_storeUrl),
+      mode: LaunchMode.externalApplication,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +116,55 @@ class ZyadaScreen extends StatelessWidget {
               onTap: () => onOpen(t.key),
             );
           },
+        ),
+        const SizedBox(height: 16),
+        // Demo v13 More: Share app + Rate app, then the free note.
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.share, size: 18),
+                label: const Text('Share app'),
+                onPressed: _shareApp,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.star, size: 18),
+                label: const Text('Rate app'),
+                onPressed: _rateApp,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Mohalla · Free for everyone',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? AppTheme.goldDark : AppTheme.gold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'No ads, no paywall — Quran, prayer times, duas and learning '
+          'are free for every Muslim, in every mohalla.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: muted),
         ),
       ],
     );

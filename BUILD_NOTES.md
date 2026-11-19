@@ -811,3 +811,75 @@ says exactly what is missing and how to fill it.
   splash shows the big 3D mosque; header/footer girih pattern
   clearly visible; Quran speaker button reads Urdu/English in a
   male voice; translator fonts unchanged.
+
+## Demo v13 screens, same-to-same (2026-11-19 ~23:06 PKT)
+
+- **Owner verified it himself: the app did NOT look like demo v13.**
+  He was right. The 2026-11-18 "UI design pass" only carried the
+  demo's TOKENS + component styling into the app — the screens'
+  actual layouts and content were never matched to the demo.
+  Verified screen by screen against `mohalla-splash-login-demo-v13.html`
+  (19 screens, text extracted per section) and fixed the real gaps:
+- **Splash (rebuilt to demo order):** was Bismillah + big ring +
+  orbit + "Mohalla" + old tagline. Now: 3D mark (120, pulsed,
+  no ring, no orbit — the orbit belongs on Permissions in the
+  demo) + "MOHALLA" wordmark (letterspaced, pale gold #FDF6DA) +
+  "Your mohalla, your mosque" (demo tagline) + Bismillah + loader
+  at the bottom. 2.6s + tap-to-skip unchanged.
+- **Permissions (rebuilt):** was "Permission needed" + 2 tiles +
+  one Allow button. Now the demo layout: orbit hero (the same 8
+  demo words circle the 3D mark, 46s spin) + "A few permissions" +
+  "Mohalla works better with these — you can change them anytime
+  in Settings." + 3 rows (Location / Notifications / Storage),
+  each with Allow / Skip and an Allowed / Skipped label + Continue
+  + "Skip for now". Notifications Allow really requests the system
+  permission; Location / Storage Allow only records the choice
+  (GPS permission is requested on first use; Quran downloads ask
+  when they start). Scrollable, so it cannot overflow small phones.
+- **Login (rebuilt):** was orbit rings + "Create your profile or
+  skip." + name/Gmail fields + 8 language chips + "Sign in with
+  Gmail" + Skip. Now the demo layout: 3D mark on top + time
+  greeting ("Assalamu Alaikum · Good morning/afternoon/evening",
+  from the hour) + Arabic greeting + "Welcome to Mohalla" +
+  "Connect with your mosque — prayer times, azan and mohalla news,
+  all in one place." + card (white "Continue with Google" button
+  with the blue G + OR + Email + Password + gold Continue) +
+  "English · 124 languages" chip (opens the full Translate list)
+  + the honest local-only note + "Skip for now". Password is
+  NEVER stored or sent (local-only app, no backend — the field is
+  there for visual parity with the demo). Profile name is derived
+  from the email and can be edited in Settings > Edit Profile.
+- **More / Zyada:** added the demo's "Share app" (native share
+  sheet, new dep `share_plus: ^10.0.0` — run `flutter pub get`)
+  + "Rate app" (Play Store link via url_launcher) + the footer
+  note "Mohalla · Free for everyone / No ads, no paywall — Quran,
+  prayer times, duas and learning are free for every Muslim, in
+  every mohalla."
+- **Home:** quick tools now match the demo order/content — Quran,
+  Qibla, Tasbih, Duas (was Quran, Mushaf, Tasbih, Qibla). Added
+  the demo's "Set your mosque" card (shows only until a mosque is
+  set; tap opens Settings > My Mosque). Home greeting stays ONLY
+  "Assalamu Alaikum," — the owner's decision overrides the demo's
+  "Assalamu Alaikum, Muhammad Muzzamil" here.
+- **Quran list:** added the demo's All / Makki / Madani filter
+  chips (data: Meccan | Medinan) and a BOOKMARKS section above the
+  surah list (tap opens the reader at the saved ayah via
+  initialAyah). Qibla already showed bearing + distance + the
+  "Rotate the phone" hint — no change.
+- **Translator fonts: NOT touched** (owner's standing rule).
+- **Not yet matched (follow-up):** the deeper screens' inner
+  layouts (Learn detail, AI Friend, Settings, Tasbih, Zakat,
+  Calendar, Prayer Tracker, Mosques, News, Profile) still carry
+  the app's own layouts with demo tokens — if the owner spots a
+  difference on any of them, name the screen and it gets the same
+  treatment.
+- **Build (owner):** `git pull`, `flutter pub get` (new dep),
+  `flutter clean`, `flutter build apk --release --split-per-abi`,
+  uninstall old app, install arm64 APK. Check: splash = mark +
+  MOHALLA + tagline + Bismillah + Loading; Permissions = orbit +
+  3 rows with Allow/Skip; Login = greeting + Welcome + Google +
+  Email/Password + Continue + languages chip; More = Share/Rate +
+  free note; Home = Quran/Qibla/Tasbih/Duas + Set your mosque
+  card; Quran = Makki/Madani chips + Bookmarks. If `flutter pub
+  get` fails on share_plus, tell Muse — the fallback is a
+  copy-link Share with no new dependency.

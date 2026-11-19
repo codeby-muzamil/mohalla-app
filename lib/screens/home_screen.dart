@@ -567,6 +567,49 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        // Demo v13 Home peek: "Set your mosque" until one is set.
+        // (The mosque name itself is set in Settings > My Mosque.)
+        if (settings.masjidName.isEmpty) ...[
+          PressableCard(
+            onTap: () => widget.onOpenTool('settings'),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.mosque, color: accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Set your mosque',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Once a mosque is set, its azan and iqama times '
+                        'will show right here.',
+                        style: TextStyle(fontSize: 12, color: muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: muted),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         const SizedBox(height: 12),
 
         // ---- Hijri date, prominent ----
@@ -721,6 +764,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
 
         // ---- Quick-access shortcuts (existing features only) ----
+        // Demo v13 Home quick tools: Quran, Qibla, Tasbih, Duas.
         Row(
           children: [
             _Shortcut(
@@ -730,9 +774,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 8),
             _Shortcut(
-              icon: Icons.auto_stories,
-              label: 'Mushaf',
-              onTap: () => widget.onOpenTool('mushaf'),
+              icon: Icons.explore,
+              label: 'Qibla',
+              onTap: widget.onOpenQibla,
             ),
             const SizedBox(width: 8),
             _Shortcut(
@@ -742,9 +786,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 8),
             _Shortcut(
-              icon: Icons.explore,
-              label: 'Qibla',
-              onTap: widget.onOpenQibla,
+              icon: Icons.auto_stories,
+              label: 'Duas',
+              onTap: () => widget.onOpenTool('duas'),
             ),
           ],
         ),

@@ -10,14 +10,16 @@ import '../services/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/pattern.dart';
 
-/// Nusuk-style first-launch flow (shown only until the profile is set):
-///   1. Splash — Islamic pattern + gold M mark in the centre.
-///   2. Permissions — explains Azan notifications + GPS location
-///      (prayer timings and Qibla come from the phone's location),
-///      requests notification permission.
-///   3. Login — app icon top-right, Arabic calligraphy words orbiting
-///      in slow circles, Gmail login + Skip (profile stays local-only;
-///      real Google sign-in needs Firebase — see BUILD_NOTES.md).
+/// Nusuk-style first-launch flow (shown only until the profile is set),
+/// laid out exactly like the approved demo v13:
+///   1. Splash — 3D mark, MOHALLA wordmark, "Your mohalla, your mosque",
+///      Bismillah, loader (no orbit — the orbit is on Permissions).
+///   2. Permissions — the 8 orbiting Arabic words circle the mark;
+///      Location / Notifications / Storage rows with Allow / Skip.
+///   3. Login — time greeting + "Welcome to Mohalla", Google button,
+///      OR, Email + Password, Continue, "English · 124 languages"
+///      chip, Skip for now (profile stays local-only; real Google
+///      sign-in needs Firebase — see BUILD_NOTES.md).
 class OnboardingFlow extends StatefulWidget {
   /// First page to show (0 = splash). The every-launch splash reuses
   /// this flow, then the full onboarding continues at step 1.
@@ -202,20 +204,9 @@ class _SplashPage extends StatefulWidget {
 class _SplashPageState extends State<_SplashPage>
     with TickerProviderStateMixin {
   late final AnimationController _c;
-  // Demo v13 orbit: the Arabic words circle the mark on a slow 46s spin.
-  late final AnimationController _orbit;
-
-  /// Words on the splash orbit (demo v13: 8 words).
-  static const _orbitWords = [
-    'الله',
-    'محمد',
-    'قرآن',
-    'سلام',
-    'نور',
-    'إيمان',
-    'ذكر',
-    'صبر',
-  ];
+  // Demo v13 splash: NO orbit here — the orbiting words live on the
+  // Permissions hero in the demo. The splash is the 3D mark +
+  // wordmark + tagline + Bismillah + loader.
 
   @override
   void initState() {
@@ -224,45 +215,12 @@ class _SplashPageState extends State<_SplashPage>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    _orbit = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 46),
-    )..repeat();
   }
 
   @override
   void dispose() {
     _c.dispose();
-    _orbit.dispose();
     super.dispose();
-  }
-
-  /// Words placed on a circle of radius 118 around the mark, moving
-  /// with [angle]. Only the POSITION moves — each word stays upright.
-  List<Widget> _splashOrbitWords(double angle) {
-    final out = <Widget>[];
-    for (var i = 0; i < _orbitWords.length; i++) {
-      final a = angle + i * 2 * math.pi / _orbitWords.length;
-      final dx = 118 * math.cos(a);
-      final dy = 118 * math.sin(a);
-      out.add(
-        Transform.translate(
-          offset: Offset(dx, dy),
-          child: Text(
-            _orbitWords[i],
-            style: TextStyle(
-              fontFamily: 'Amiri',
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              // Splash background is always dark emerald: demo orbit
-              // gold #F0D488.
-              color: Color(0xFFF0D488),
-            ),
-          ),
-        ),
-      );
-    }
-    return out;
   }
 
   @override
@@ -283,8 +241,44 @@ class _SplashPageState extends State<_SplashPage>
             child: child,
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
+              const SizedBox(height: 56),
+              // Demo v13 splash: the 3D mark on top, then the wordmark.
+              // (The demo's hero badge is small; the mark stays 120 so
+              // the 3D mosque reads clearly on a real phone.)
+              AnimatedBuilder(
+                animation: _c,
+                builder: (context, child) {
+                  return Transform.scale(
+                    // Gentle pulse only: the icon must not look zoomed —
+                    // the full logo has to stay visible.
+                    scale: 1 + 0.02 * _c.value,
+                    child: child,
+                  );
+                },
+                child: const GoldMark(
+                  size: 120,
+                  asset: 'assets/images/mohalla_splash_icon.png',
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'MOHALLA',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  // Demo .app-name: letterspaced, pale gold (#FDF6DA).
+                  color: Color(0xFFFDF6DA),
+                  letterSpacing: 8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your mohalla, your mosque',
+                style: TextStyle(color: Color(0xFFE8DCB2), fontSize: 14),
+              ),
+              const SizedBox(height: 28),
               const Text(
                 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
                 textDirection: TextDirection.rtl,
@@ -294,100 +288,7 @@ class _SplashPageState extends State<_SplashPage>
                   color: AppTheme.goldLight,
                 ),
               ),
-              const SizedBox(height: 28),
-              // Gold ring + glow around the M mark. Rounded-square (NOT
-              // a circle): GoldMark itself is a rounded square, and the
-              // old circular ring cut across its corners — that was the
-              // "logo cut" on the splash. Radius 50 = 12 padding +
-              // the mark's own 24% corner radius (160 x 0.24 = 38). The 8 demo orbit
-              // words circle the ring (radius 118) on the 46s spin.
-              SizedBox(
-                width: 280,
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(50),
-                        border: Border.all(
-                          color: AppTheme.gold.withValues(alpha: 0.55),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.gold.withValues(alpha: 0.30),
-                            blurRadius: 32,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: AnimatedBuilder(
-                        animation: _c,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            // Gentle pulse only (was 1.04): the icon must not
-                            // look zoomed — the full logo has to stay visible.
-                            scale: 1 + 0.02 * _c.value,
-                            child: child,
-                          );
-                        },
-                        // Splash shows the 5A 3D artwork, bigger now
-                        // (132 -> 160) so the 3D mosque reads clearly
-                        // instead of looking small inside the ring.
-                        // GoldMark default is the same 5A artwork.
-                        child: const GoldMark(
-                          size: 160,
-                          asset: 'assets/images/mohalla_splash_icon.png',
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 280,
-                      height: 280,
-                      child: AnimatedBuilder(
-                        animation: _orbit,
-                        builder: (context, _) {
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: _splashOrbitWords(
-                              _orbit.value * 2 * math.pi,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Mohalla',
-                style: TextStyle(
-                  fontSize: 44,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 3,
-                width: 64,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.goldLight, AppTheme.gold],
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Your mosque, your neighbourhood — for the whole world.',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              const SizedBox(height: 48),
+              const Spacer(),
               const SizedBox(
                 width: 22,
                 height: 22,
@@ -401,6 +302,7 @@ class _SplashPageState extends State<_SplashPage>
                 'Loading...',
                 style: TextStyle(color: AppTheme.goldLight, fontSize: 12),
               ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -418,13 +320,53 @@ class _PermissionsPage extends StatefulWidget {
   State<_PermissionsPage> createState() => _PermissionsPageState();
 }
 
-class _PermissionsPageState extends State<_PermissionsPage> {
-  bool _asked = false;
+/// Demo v13 Permissions: the orbiting-words hero on top, "A few
+/// permissions", three rows (Location / Notifications / Storage) with
+/// Allow / Skip on each, then Continue + "Skip for now".
+class _PermissionsPageState extends State<_PermissionsPage>
+    with TickerProviderStateMixin {
+  late final AnimationController _orbit;
 
-  Future<void> _request() async {
-    setState(() => _asked = true);
+  /// Per-permission state: 0 = not asked, 1 = allowed, 2 = skipped.
+  /// Demo v13 shows Allow / Skip on every row and a "Skipped" label.
+  int _loc = 0;
+  int _notif = 0;
+  int _storage = 0;
+
+  /// The 8 demo orbit words circling the mark (demo v13 perm-hero).
+  static const _orbitWords = [
+    'الله',
+    'محمد',
+    'قرآن',
+    'سلام',
+    'نور',
+    'إيمان',
+    'ذكر',
+    'صبر',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _orbit = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 46),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _orbit.dispose();
+    super.dispose();
+  }
+
+  /// Notifications Allow: actually request the system permission.
+  /// Location / Storage Allow only records the choice — GPS permission
+  /// is requested when the location is first used, and Quran downloads
+  /// ask when they start.
+  Future<void> _allowNotif() async {
+    setState(() => _notif = 1);
     await NotificationService.requestPermissions();
-    if (mounted) widget.onNext();
   }
 
   @override
@@ -437,15 +379,72 @@ class _PermissionsPageState extends State<_PermissionsPage> {
       patternColor: isDark ? AppTheme.goldDark : AppTheme.emerald,
       patternOpacity: 0.18,
       child: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const GoldMark(size: 64),
-              const SizedBox(height: 20),
+              // Orbit hero (demo v13 perm-hero): 8 Arabic words circle
+              // the 3D mark on the 46s spin.
+              Center(
+                child: SizedBox(
+                  height: 230,
+                  child: AnimatedBuilder(
+                    animation: _orbit,
+                    builder: (context, _) {
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 220,
+                            height: 220,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  AppTheme.gold.withValues(alpha: 0.22),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 150,
+                            height: 150,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.gold.withValues(alpha: 0.55),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.gold.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          const GoldMark(size: 84),
+                          ..._orbitWordsOnCircle(
+                            100,
+                            _orbit.value * 2 * math.pi,
+                            16,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
-                'Permission needed',
+                'A few permissions',
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
@@ -465,30 +464,42 @@ class _PermissionsPageState extends State<_PermissionsPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Mohalla needs these two things so Azan and prayer '
-                'timings work correctly.',
+                'Mohalla works better with these — you can change them '
+                'anytime in Settings.',
                 style: TextStyle(fontSize: 14, color: muted),
               ),
-              const SizedBox(height: 20),
-              _permTile(
-                Icons.notifications_active,
-                'Azan notifications',
-                'When prayer time comes, you will get an Azan notification '
-                    'and sound. You can turn it off for each prayer in Settings.',
-              ),
-              const SizedBox(height: 12),
-              _permTile(
+              const SizedBox(height: 16),
+              _permRow(
                 Icons.my_location,
-                'Location (GPS)',
-                'Prayer timings and Qibla are calculated from your phone\'s '
-                    'location. Your location stays on your phone — it is '
-                    'never sent anywhere.',
+                'Location',
+                'Find prayer times and mosques near you',
+                _loc,
+                () => setState(() => _loc = 1),
+                () => setState(() => _loc = 2),
               ),
-              const Spacer(),
+              const SizedBox(height: 10),
+              _permRow(
+                Icons.notifications_active,
+                'Notifications',
+                'Gentle reminders for prayer and Azan',
+                _notif,
+                _allowNotif,
+                () => setState(() => _notif = 2),
+              ),
+              const SizedBox(height: 10),
+              _permRow(
+                Icons.download,
+                'Storage',
+                'Download the full Quran for offline reading',
+                _storage,
+                () => setState(() => _storage = 1),
+                () => setState(() => _storage = 2),
+              ),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _asked ? null : _request,
+                  onPressed: widget.onNext,
                   style: ElevatedButton.styleFrom(
                     // Demo gold button: gold bg, #1A2E28 text, radius 14.
                     backgroundColor:
@@ -501,9 +512,9 @@ class _PermissionsPageState extends State<_PermissionsPage> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: Text(
-                    _asked ? 'Requesting permission...' : 'Allow',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -512,7 +523,7 @@ class _PermissionsPageState extends State<_PermissionsPage> {
                 width: double.infinity,
                 child: TextButton(
                   onPressed: widget.onNext,
-                  child: const Text('Not now — continue'),
+                  child: const Text('Skip for now'),
                 ),
               ),
             ],
@@ -522,10 +533,16 @@ class _PermissionsPageState extends State<_PermissionsPage> {
     );
   }
 
-  Widget _permTile(IconData icon, String title, String body) {
-    // Demo v13 perm-card: radius 18, card surface (#FBF7EA light /
-    // #0F2A22 dark), 1px card-line border, demo shadow. The old
-    // version used a hard white card inside a gold gradient border.
+  /// One permission row: icon + title + subtitle, with Allow / Skip
+  /// on the right. After a choice the row shows Allowed / Skipped.
+  Widget _permRow(
+    IconData icon,
+    String title,
+    String body,
+    int state,
+    VoidCallback onAllow,
+    VoidCallback onSkip,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
     final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
@@ -558,431 +575,90 @@ class _PermissionsPageState extends State<_PermissionsPage> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: ink,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: ink),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  body,
-                  style: TextStyle(fontSize: 13, color: muted),
-                ),
+                Text(body, style: TextStyle(fontSize: 13, color: muted)),
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          if (state == 0)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _miniAction('Allow', true, onAllow),
+                const SizedBox(height: 4),
+                _miniAction('Skip', false, onSkip),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                state == 1 ? 'Allowed' : 'Skipped',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: state == 1 ? accent : muted,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
-}
 
-/// Login page: gold M mark top-right, Arabic calligraphy words slowly
-/// orbiting in circles around the centre, Gmail login + Skip.
-class _LoginPage extends StatefulWidget {
-  final void Function(String name, String email) onFinish;
-  final VoidCallback onSkip;
-
-  const _LoginPage({required this.onFinish, required this.onSkip});
-
-  @override
-  State<_LoginPage> createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<_LoginPage>
-    with TickerProviderStateMixin {
-  late final AnimationController _orbit;
-  late final AnimationController _pulse;
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  // Default language is English (user's choice) — the picker below
-  // still offers all 8 quick languages + the full Translate list.
-  String _language = 'English';
-
-  static const _languages = [
-    'English',
-    'Urdu',
-    'العربية',
-    'Bahasa Indonesia',
-    'Türkçe',
-    'Français',
-    'বাংলা',
-    'हिन्दी',
-  ];
-
-  /// Words on the orbiting rings (inner ring, outer ring).
-  static const _innerWords = ['الله', 'محمد', 'بسم الله'];
-  static const _outerWords = [
-    'سبحان الله',
-    'الحمد لله',
-    'الله أكبر',
-    'لا إله إلا الله',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _orbit = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 48),
-    )..repeat();
-    // Slow glow pulse on the centre mark.
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _orbit.dispose();
-    _pulse.dispose();
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _miniAction(String label, bool primary, VoidCallback onTap) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
-    return PatternBackground(
-      base: isDark ? AppTheme.nightBg : AppTheme.sand,
-      patternColor: isDark ? AppTheme.goldDark : AppTheme.emerald,
-      patternOpacity: 0.18,
-      child: SafeArea(
-        child: Stack(
-          children: [
-            // App icon, top-right (Nusuk-style).
-            const Positioned(
-              top: 12,
-              right: 16,
-              child: GoldMark(size: 52),
-            ),
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
-              child: Column(
-                children: [
-                  // Orbiting calligraphy.
-                  SizedBox(
-                    height: 230,
-                    child: AnimatedBuilder(
-                      animation: _orbit,
-                      builder: (context, _) {
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Soft gold glow behind the rings.
-                            Container(
-                              width: 250,
-                              height: 250,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    AppTheme.gold
-                                        .withValues(alpha: 0.22),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Orbit rings (gold, glowing).
-                            Container(
-                              width: 150,
-                              height: 150,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.gold
-                                      .withValues(alpha: 0.55),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.gold
-                                        .withValues(alpha: 0.35),
-                                    blurRadius: 16,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              width: 220,
-                              height: 220,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.gold
-                                      .withValues(alpha: 0.35),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.gold
-                                        .withValues(alpha: 0.25),
-                                    blurRadius: 20,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            AnimatedBuilder(
-                              animation: _pulse,
-                              builder: (context, child) {
-                                return Transform.scale(
-                                  scale: 1 + 0.04 * _pulse.value,
-                                  child: child,
-                                );
-                              },
-                              child: const GoldMark(size: 84),
-                            ),
-                            ..._orbitWords(
-                              _innerWords,
-                              75,
-                              _orbit.value * 2 * math.pi,
-                              20,
-                            ),
-                            ..._orbitWords(
-                              _outerWords,
-                              110,
-                              -_orbit.value * 2 * math.pi + 0.6,
-                              16,
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Assalamu Alaikum',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: ink,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    height: 3,
-                    width: 56,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.goldLight, AppTheme.gold],
-                      ),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Create your profile or skip.',
-                    style: TextStyle(color: muted),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: _languages.map((l) {
-                      return ChoiceChip(
-                        label: Text(l),
-                        selected: _language == l,
-                        onSelected: (_) =>
-                            setState(() => _language = l),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  // Translate: full worldwide language list (searchable).
-                  // Sets the language through the same `_language` state
-                  // the 8 quick chips above use.
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.translate, size: 18),
-                    label: Text(
-                      _languages.contains(_language)
-                          ? 'Translate'
-                          : 'Translate: $_language',
-                    ),
-                    onPressed: () => _openTranslateSheet(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Demo login card: radius 20, card surface, 1px
-                  // card-line border, demo shadow — holds the profile
-                  // fields, the note and the sign-in actions.
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppTheme.nightCard
-                          : AppTheme.cardLight,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isDark
-                            ? AppTheme.cardLineDark
-                            : AppTheme.cardLineLight,
-                      ),
-                      boxShadow: [AppTheme.cardShadow(isDark)],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _nameCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Your name',
-                            filled: true,
-                            fillColor: isDark
-                                ? AppTheme.chipDark
-                                : AppTheme.chipLight,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? AppTheme.goldDark
-                                    : AppTheme.gold,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            labelText: 'Gmail address',
-                            filled: true,
-                            fillColor: isDark
-                                ? AppTheme.chipDark
-                                : AppTheme.chipLight,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? AppTheme.goldDark
-                                    : AppTheme.gold,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'This profile is saved only on this phone. Real Google '
-                          'sign-in will come after Firebase is added.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: muted),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.mail, size: 18),
-                            label: const Text(
-                              'Sign in with Gmail',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: () => widget.onFinish(
-                              _nameCtrl.text,
-                              _emailCtrl.text,
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  isDark ? AppTheme.goldDark : AppTheme.gold,
-                              foregroundColor: const Color(0xFF1A2E28),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 15,
-                              ),
-                              elevation: 8,
-                              shadowColor:
-                                  AppTheme.gold.withValues(alpha: 0.6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: widget.onSkip,
-                          child: const Text('Skip'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: primary ? gold : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: primary
+                ? gold
+                : (isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight),
+          ),
         ),
-      ),
-    );
-  }
-
-  /// Opens the full worldwide language list (searchable bottom sheet).
-  /// Picking one sets the language through the same `_language` state
-  /// the 8 quick chips use.
-  void _openTranslateSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor:
-          isDark ? AppTheme.nightCard : AppTheme.cardLight,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _TranslateSheet(
-        current: _language,
-        onPick: (label) {
-          Navigator.pop(ctx);
-          setState(() => _language = label);
-        },
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: primary ? const Color(0xFF1A2E28) : muted,
+          ),
+        ),
       ),
     );
   }
 
   /// Words placed on a circle of [radius], moving with [angle].
   /// Only the POSITION moves — each word itself stays upright.
-  List<Widget> _orbitWords(
-    List<String> words,
+  List<Widget> _orbitWordsOnCircle(
     double radius,
     double angle,
     double fontSize,
   ) {
-    // Demo orbit words: Amiri serif, gold — #8A6D1B on the light
-    // sand, #F0D488 after dark.
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wordColor =
         isDark ? const Color(0xFFF0D488) : const Color(0xFF8A6D1B);
     final out = <Widget>[];
-    for (var i = 0; i < words.length; i++) {
-      final a = angle + i * 2 * math.pi / words.length;
+    for (var i = 0; i < _orbitWords.length; i++) {
+      final a = angle + i * 2 * math.pi / _orbitWords.length;
       final dx = radius * math.cos(a);
       final dy = radius * math.sin(a);
       out.add(
         Transform.translate(
           offset: Offset(dx, dy),
           child: Text(
-            words[i],
+            _orbitWords[i],
             style: TextStyle(
               fontFamily: 'Amiri',
               fontSize: fontSize,
@@ -994,6 +670,309 @@ class _LoginPageState extends State<_LoginPage>
       );
     }
     return out;
+  }
+}
+
+/// Login page (demo v13): time greeting + Arabic greeting,
+/// "Welcome to Mohalla", Google + email/password card, the
+/// "English · 124 languages" chip, Skip for now. The password is
+/// never stored or sent — the app is local-only with no backend;
+/// the field exists for visual parity with the approved demo.
+/// The profile name is derived from the email; it can be edited
+/// later in Settings > Edit Profile.
+class _LoginPage extends StatefulWidget {
+  final void Function(String name, String email) onFinish;
+  final VoidCallback onSkip;
+
+  const _LoginPage({required this.onFinish, required this.onSkip});
+
+  @override
+  State<_LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<_LoginPage> {
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  // Default language is English (user's choice) — the chip below
+  // still opens the full Translate list (124 languages).
+  String _language = 'English';
+
+  /// "Good morning / afternoon / evening" for the demo greeting line.
+  String get _dayPart {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    if (h < 21) return 'Good evening';
+    return 'Good night';
+  }
+
+  /// Profile name from the email (e.g. muzzamilmughal26@… ->
+  /// "Muzzamilmughal"). Editable later in Settings > Edit Profile.
+  String _nameFromEmail(String email) {
+    final local = email.split('@').first;
+    final cleaned = local.replaceAll(RegExp(r'[^A-Za-z ]'), ' ').trim();
+    if (cleaned.isEmpty) return '';
+    return cleaned
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+  }
+
+  void _finish() {
+    widget.onFinish(_nameFromEmail(_emailCtrl.text), _emailCtrl.text);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
+    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    return PatternBackground(
+      base: isDark ? AppTheme.nightBg : AppTheme.sand,
+      patternColor: isDark ? AppTheme.goldDark : AppTheme.emerald,
+      patternOpacity: 0.18,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+          child: Column(
+            children: [
+              // The icon "travels" from the splash to the login
+              // (demo controls) — the 3D mark sits on top here.
+              const GoldMark(size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Assalamu Alaikum · $_dayPart',
+                style: TextStyle(fontSize: 13, color: muted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'السَّلَامُ عَلَيْكُمْ',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  fontFamily: 'Amiri',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: gold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Welcome to Mohalla',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 3,
+                width: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.goldLight, AppTheme.gold],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Connect with your mosque — prayer times, azan and '
+                'mohalla news, all in one place.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: muted),
+              ),
+              const SizedBox(height: 20),
+              // Demo login card: radius 20, card surface, 1px
+              // card-line border, demo shadow — Google button, OR,
+              // Email + Password, Continue.
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.nightCard : AppTheme.cardLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        isDark ? AppTheme.cardLineDark : AppTheme.cardLineLight,
+                  ),
+                  boxShadow: [AppTheme.cardShadow(isDark)],
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _finish,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF1F1F1F),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text(
+                              'G',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4285F4),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Continue with Google',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(fontSize: 12, color: muted),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'you@example.com',
+                        filled: true,
+                        fillColor: isDark
+                            ? AppTheme.chipDark
+                            : AppTheme.chipLight,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: gold, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _passCtrl,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        hintText: '••••••••',
+                        filled: true,
+                        fillColor: isDark
+                            ? AppTheme.chipDark
+                            : AppTheme.chipLight,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: gold, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _finish,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isDark ? AppTheme.goldDark : AppTheme.gold,
+                          foregroundColor: const Color(0xFF1A2E28),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          elevation: 8,
+                          shadowColor: AppTheme.gold.withValues(alpha: 0.6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Continue',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.language, size: 18),
+                label: Text('$_language · 124 languages'),
+                onPressed: () => _openTranslateSheet(context),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This profile is saved only on this phone. Real Google '
+                'sign-in will come after Firebase is added.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: widget.onSkip,
+                child: const Text('Skip for now'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Opens the full worldwide language list (searchable bottom sheet).
+  /// Picking one sets the `_language` state the chip label shows.
+  void _openTranslateSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: isDark ? AppTheme.nightCard : AppTheme.cardLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _TranslateSheet(
+        current: _language,
+        onPick: (label) {
+          Navigator.pop(ctx);
+          setState(() => _language = label);
+        },
+      ),
+    );
   }
 }
 
