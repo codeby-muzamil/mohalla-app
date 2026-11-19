@@ -467,7 +467,18 @@ class NewsDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(title: const Text('Islamic News')),
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Islamic News'),
+            Text(
+              'Ummah, Hajj, Quran & community',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
       body: PatternBackground(
         base: isDark ? AppTheme.nightBg : AppTheme.sand,
         patternColor: isDark ? Colors.white : AppTheme.emerald,

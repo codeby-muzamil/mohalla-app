@@ -180,6 +180,30 @@ class _MosquesScreenState extends State<MosquesScreen> {
             subtitle: 'Mosques near you — listed in the app.',
           ),
         ),
+        // Demo v13 Mosques: "Your mosque" card on top (name only —
+        // Iqama times do not exist anywhere, so none are shown).
+        if (settings.masjidName.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Card(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.mosque, color: accent),
+                ),
+                title: Text(
+                  settings.masjidName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle:
+                    const Text('Your mosque · Your mohalla masjid'),
+              ),
+            ),
+          ),
         if (coords == null)
           Expanded(
             child: SingleChildScrollView(

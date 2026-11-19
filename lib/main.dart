@@ -16,7 +16,7 @@ import 'screens/mushaf_reader_screen.dart';
 import 'screens/names_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/onboarding_flow.dart';
-import 'screens/profile_edit_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/qibla_screen.dart';
 import 'screens/quran_list_screen.dart';
 import 'screens/quran_reader_screen.dart';
@@ -275,13 +275,10 @@ class _RootScreenState extends State<RootScreen>
         page = const SettingsScreen();
         break;
       case 'profile':
-        // The Edit Profile screen has its own Scaffold + AppBar,
-        // so it is pushed directly instead of via _ToolPage.
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
-        );
-        return;
+        // Demo v13 Profile view (account + quick links). The Edit
+        // form opens from inside it.
+        page = ProfileScreen(onOpen: _openTool);
+        break;
     }
     if (page != null) {
       Navigator.push(
@@ -320,7 +317,7 @@ class _RootScreenState extends State<RootScreen>
         onOpenTab: (i) => setState(() => _index = i),
       ),
       const QuranListScreen(),
-      const LearnScreen(),
+      LearnScreen(onOpen: _openTool),
       const AiScreen(),
       ZyadaScreen(onOpen: _openTool),
     ];
@@ -784,6 +781,7 @@ class _ToolPage extends StatelessWidget {
     'mosques': 'Nearby Mosques',
     'news': 'Islamic News',
     'settings': 'Settings',
+    'profile': 'Profile',
   };
 
   @override

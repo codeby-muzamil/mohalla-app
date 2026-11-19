@@ -4,72 +4,125 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
-/// Seekhein (Learning): Wudu ka Tareeqa (9 steps, animated human figure
-/// drawn with simple shapes) + Namaz Parhne ka Tareeqa (7 positions) +
-/// Namaz ke Baad ki Dua (with Tasbih-e-Fatima counters).
-///
-/// ACCURACY: only the verified before/after Wudu duas are shown
-/// (from assets/data/duas.json, category "wudu"). Limb-specific duas
-/// during Wudu are NOT authentically established, so they are NOT
-/// presented as Sunnah anywhere here. Salah recitations come from
-/// assets/data/salah_texts.json (verified hadith sources).
-class LearnScreen extends StatefulWidget {
-  const LearnScreen({super.key});
+/// Learn (demo v13): the 7-item list — Sunnah & Shariah, Asma-ul-Husna,
+/// Duas & Azkar, Hadith Library, Wudu, Namaz, Mamulaat. Each opens its
+/// screen; Wudu / Namaz open the step guides below as detail pages.
+/// (The old version opened straight into the Wudu/Namaz tabs.)
+/// The step guides themselves are unchanged — see _WuduSteps /
+/// _NamazSteps below. ACCURACY: only the verified before/after Wudu
+/// duas are shown (from assets/data/duas.json, category "wudu").
+/// Limb-specific duas during Wudu are NOT authentically established,
+/// so they are NOT presented as Sunnah anywhere here. Salah
+/// recitations come from assets/data/salah_texts.json (verified
+/// hadith sources).
+class LearnScreen extends StatelessWidget {
+  final void Function(String key) onOpen;
 
-  @override
-  State<LearnScreen> createState() => _LearnScreenState();
-}
-
-class _LearnScreenState extends State<LearnScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+  const LearnScreen({super.key, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
     final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
-    return Column(
-      children: [
-        TabBar(
-          controller: _tabs,
-          labelColor: gold,
-          unselectedLabelColor: muted,
-          indicatorColor: gold,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-          tabs: const [
-            Tab(text: 'How to Perform Wudu'),
-            Tab(text: 'How to Pray'),
-          ],
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabs,
-            children: const [
-              _WuduSteps(),
-              _NamazSteps(),
+    final accent = isDark ? AppTheme.goldDark : AppTheme.emerald;
+    const items = [
+      _LearnItem('sunnah', Icons.lightbulb, 'Sunnah & Shariah',
+          'Day-to-day Sunnah and Shariah guidance'),
+      _LearnItem('names', Icons.favorite, 'Asma-ul-Husna',
+          'All 99 names of Allah, with meanings'),
+      _LearnItem('duas', Icons.menu_book, 'Duas & Azkar',
+          'Daily duas with translation & reference'),
+      _LearnItem('hadith', Icons.book, 'Hadith Library',
+          '24 selected hadith on daily life'),
+      _LearnItem('wudu', Icons.water_drop, 'Wudu', '9 steps, in order'),
+      _LearnItem('namaz', Icons.person, 'Namaz', '7 positions of Salah'),
+      _LearnItem('mamulaat', Icons.auto_stories, 'Mamulaat',
+          'Manzil · Durood · Morning & Evening Azkar'),
+    ];
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 92),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final it = items[i];
+        return PressableCard(
+          onTap: () => _open(context, it.key),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(it.icon, color: accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      it.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      it.subtitle,
+                      style: TextStyle(fontSize: 12, color: muted),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: muted),
             ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
+
+  void _open(BuildContext context, String key) {
+    if (key == 'wudu') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Wudu')),
+            body: const _WuduSteps(),
+          ),
+        ),
+      );
+      return;
+    }
+    if (key == 'namaz') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Namaz')),
+            body: const _NamazSteps(),
+          ),
+        ),
+      );
+      return;
+    }
+    // Mamulaat lives inside Duas & Azkar (Manzil / Durood / Morning &
+    // Evening Azkar categories), so it opens the Duas screen.
+    onOpen(key == 'mamulaat' ? 'duas' : key);
+  }
+}
+
+class _LearnItem {
+  final String key;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _LearnItem(this.key, this.icon, this.title, this.subtitle);
 }
 
 /// The 9 steps of Wudu (standard practice, as taught in Fiqh).

@@ -20,6 +20,21 @@ class _TrackerScreenState extends State<TrackerScreen> {
   int _tasbihCount = 0;
   int _tasbihTarget = 33;
   String _tasbihDhikr = 'SubhanAllah';
+  // Demo v13 Tasbih: today's counts per dhikr (for the daily goal
+  // and the history list), saved per-day on the phone.
+  Map<String, int> _tasbihToday = {};
+
+  static const _tasbihDhikrs = [
+    'SubhanAllah',
+    'Alhamdulillah',
+    'Allahu Akbar',
+    'La ilaha illallah',
+    'Astaghfirullah',
+  ];
+
+  /// Today's total Tasbih counts across all dhikrs (daily goal: 300).
+  int get _tasbihTodayTotal =>
+      _tasbihToday.values.fold(0, (sum, c) => sum + c);
 
   static const _prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
   static const _prayerNames = {
@@ -41,6 +56,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
     return 'tracker_${n.year}-${n.month}-${n.day}';
   }
 
+  String get _tasbihKey {
+    final n = DateTime.now();
+    return 'tasbih_${n.year}-${n.month}-${n.day}';
+  }
+
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     final map = <String, String>{};
@@ -48,7 +68,36 @@ class _TrackerScreenState extends State<TrackerScreen> {
       final v = p.getString('$_todayKey-$k');
       if (v != null) map[k] = v;
     }
-    if (mounted) setState(() => _today = map);
+    final tasbih = <String, int>{};
+    for (final d in _tasbihDhikrs) {
+      tasbih[d] = p.getInt('$_tasbihKey-$d') ?? 0;
+    }
+    if (mounted) {
+      setState(() {
+        _today = map;
+        _tasbihToday = tasbih;
+      });
+    }
+  }
+
+  /// One tap: the session count AND today's saved count for this dhikr.
+  Future<void> _tapTasbih() async {
+    final p = await SharedPreferences.getInstance();
+    final next = (_tasbihToday[_tasbihDhikr] ?? 0) + 1;
+    await p.setInt('$_tasbihKey-$_tasbihDhikr', next);
+    setState(() {
+      _tasbihCount++;
+      _tasbihToday[_tasbihDhikr] = next;
+    });
+  }
+
+  /// Demo "Next dhikr ›": cycle to the next dhikr and restart the count.
+  void _nextDhikr() {
+    final i = _tasbihDhikrs.indexOf(_tasbihDhikr);
+    setState(() {
+      _tasbihDhikr = _tasbihDhikrs[(i + 1) % _tasbihDhikrs.length];
+      _tasbihCount = 0;
+    });
   }
 
   Future<void> _set(String prayer, String value) async {
@@ -213,7 +262,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                               : AppTheme.emerald,
                           foregroundColor: const Color(0xFFF7F1E3),
                         ),
-                        onPressed: () => setState(() => _tasbihCount++),
+                        onPressed: _tapTasbih,
                         child: const Text(
                           'TAP',
                           style: TextStyle(fontSize: 20),
@@ -240,6 +289,70 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       ),
                     ),
                   ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                // Demo v13 Tasbih: daily goal (300) + today's history.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Daily goal · 300 counts',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '$_tasbihTodayTotal of 300 done today',
+                      style: TextStyle(fontSize: 12, color: muted),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: (_tasbihTodayTotal / 300).clamp(0.0, 1.0),
+                    minHeight: 8,
+                    backgroundColor:
+                        isDark ? AppTheme.chipDark : AppTheme.chipLight,
+                    valueColor: AlwaysStoppedAnimation<Color>(gold),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Today's history",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextButton(
+                      onPressed: _nextDhikr,
+                      child: const Text('Next dhikr ›'),
+                    ),
+                  ],
+                ),
+                ..._tasbihDhikrs.map((d) {
+                  final c = _tasbihToday[d] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(d)),
+                        Text(
+                          c >= 33
+                              ? '$c ✓'
+                              : c > 0
+                                  ? '$c · in progress'
+                                  : '—',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: c >= 33 ? gold : muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
           ),

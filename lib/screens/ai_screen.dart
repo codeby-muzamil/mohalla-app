@@ -20,12 +20,12 @@ class _AiScreenState extends State<AiScreen> {
     {
       'role': 'ai',
       'text':
-          'Assalamu Alaikum! I am the AI Friend. Ask me about Prayer, Zakat, Fasting, Wudu or the Quran.',
+          'Assalamu Alaikum! I am your AI Friend. Ask me about prayer, fasting, Zakat, or daily duas — or tap a suggestion below.',
     },
   ];
   bool _busy = false;
 
-  static const _chips = ['What is Zakat?', 'Prayer times?', 'How to perform Wudu?', 'What is fasting?'];
+  static const _chips = ['What is Zakat?', 'How do I pray Fajr?', 'Dua for travelling'];
 
   @override
   void dispose() {

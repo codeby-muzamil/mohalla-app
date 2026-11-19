@@ -883,3 +883,61 @@ says exactly what is missing and how to fill it.
   card; Quran = Makki/Madani chips + Bookmarks. If `flutter pub
   get` fails on share_plus, tell Muse — the fallback is a
   copy-link Share with no new dependency.
+
+## Demo v13 remaining screens, same-to-same (2026-11-19 ~23:20 PKT)
+
+- **Owner's check: "last chance" — confirm the WHOLE app is exact.**
+  Verified the remaining screens against demo v13 the same way
+  (text extracted per section). Real gaps found and fixed:
+- **Learn (rebuilt):** was a Wudu/Namaz tab screen straight away.
+  Now the demo's 7-item list — Sunnah & Shariah, Asma-ul-Husna,
+  Duas & Azkar, Hadith Library, Wudu, Namaz, Mamulaat — each opens
+  its screen (Wudu / Namaz open the step guides as detail pages;
+  Mamulaat opens Duas & Azkar, where its categories live).
+- **AI Friend:** greeting is now the demo's ("I am your AI Friend.
+  Ask me about prayer, fasting, Zakat, or daily duas — or tap a
+  suggestion below.") and the chips are the demo's 3 ("What is
+  Zakat?", "How do I pray Fajr?", "Dua for travelling"). The
+  offline status line stays honest (no Gemini key = offline).
+- **Settings:** version is now "Mohalla 1.0.0" (was "0.1.0
+  (prototype)"); Appearance has the demo's Light / Dark preview
+  tiles (tap to switch, check marks the live mode). Muezzin voices
+  already matched (Al-Afasy, Al-Qatami, Makkah, Madinah).
+- **Profile (new screen):** 'profile' used to open the Edit form
+  directly. Now it opens the demo's Profile view — "Your Mohalla
+  account" (avatar, name, email, Edit Profile button) + Quick
+  links (My Mosque, Prayer Tracker, Settings). Edit form unchanged.
+- **Prayer Tracker / Tasbih:** added the demo's daily goal (300
+  counts, progress bar, "X of 300 done today") and Today's history
+  (per-dhikr counts for today, saved on the phone, ✓ at 33) plus
+  "Next dhikr ›" (cycles the dhikr). Tap counter + presets + reset
+  unchanged. Counts are per-day; a new day starts at 0.
+- **Zakat:** added the demo's "Clear all" button (empties the
+  amounts; rates stay). The tola-based gold/silver inputs and the
+  tola nisab are kept — same nisab as the demo's 87.48g gold, in
+  the Pakistani unit.
+- **News:** header now carries the demo subtitle "Ummah, Hajj,
+  Quran & community" under "Islamic News" (real RSS articles
+  unchanged).
+- **Mosques:** added the demo's "Your mosque" card on top (shows
+  the set mosque name; hidden until one is set). No Iqama time is
+  shown — Iqama times do not exist anywhere.
+- **Calendar:** NO change — the app already shows the Hijri month
+  + Islamic events + upcoming countdowns. The demo's "community
+  Iftar / charity collection" events need a Community feature,
+  which was removed from the app — they cannot be matched.
+- **Qibla:** NO change — bearing + distance + "Rotate the phone"
+  hint already matched the demo.
+- **Still deliberately different from the demo:** Home greeting is
+  ONLY "Assalamu Alaikum," (owner's decision, no name); Login has
+  "Skip for now" (the demo has no skip — the app needs a way past
+  login); Login password is never stored (no backend); Settings
+  has no "App language" row (the app is fully English; the 124
+  languages live in the Quran translator + the Login chip).
+- **Build (owner):** `git pull`, `flutter pub get`, `flutter
+  clean`, `flutter build apk --release --split-per-abi`, uninstall
+  old app, install arm64 APK. Check the Learn tab (7-item list),
+  AI Friend (demo greeting + 3 chips), Settings (1.0.0 + preview
+  tiles), Profile (account + quick links), Tracker Tasbih (daily
+  goal + history), Zakat (Clear all), News subtitle, Mosques
+  "Your mosque" card.

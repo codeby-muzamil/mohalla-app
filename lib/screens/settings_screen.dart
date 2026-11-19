@@ -182,6 +182,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: settings.elderMode,
                 onChanged: settings.setElderMode,
               ),
+              // Demo v13 Settings: Light / Dark preview tiles (tap to
+              // switch). The check marks the live mode.
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => settings.setDarkMode(false),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.sand,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: settings.darkMode
+                                  ? AppTheme.cardLineLight
+                                  : AppTheme.gold,
+                              width: settings.darkMode ? 1 : 2,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Light preview',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.ink,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (!settings.darkMode)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      size: 16,
+                                      color: AppTheme.gold,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Sand & white',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.mutedLight,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => settings.setDarkMode(true),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.nightBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: settings.darkMode
+                                  ? AppTheme.goldDark
+                                  : AppTheme.cardLineDark,
+                              width: settings.darkMode ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Dark preview',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.nightInk,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (settings.darkMode)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      size: 16,
+                                      color: AppTheme.goldDark,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Deep emerald',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.mutedDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -752,7 +865,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Version 0.1.0 (prototype) • Mohalla • com.mohalla.app',
+          'Version Mohalla 1.0.0 • com.mohalla.app',
           style: TextStyle(fontSize: 12, color: muted),
         ),
       ],

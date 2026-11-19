@@ -201,6 +201,13 @@ class _ZakatScreenState extends State<ZakatScreen> {
               ),
             ),
           ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _clearAll,
+            child: const Text('Clear all'),
+          ),
+        ),
         const SampleNote(
           text:
               'Nisab: 52.5 tola silver or 7.5 tola gold. This calculator '
@@ -208,6 +215,18 @@ class _ZakatScreenState extends State<ZakatScreen> {
         ),
       ],
     );
+  }
+
+  /// Demo v13 Zakat: "Clear all" empties the amounts (rates stay).
+  void _clearAll() {
+    setState(() {
+      _cash.clear();
+      _debts.clear();
+      _gold.clear();
+      _silver.clear();
+      _zakat = null;
+      _message = null;
+    });
   }
 
   Widget _moneyField(
