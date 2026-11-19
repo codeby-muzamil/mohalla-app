@@ -428,8 +428,14 @@ class _MohallaHeader extends StatelessWidget
       ),
       child: PatternBackground(
         base: AppTheme.emerald,
-        patternColor: Colors.white,
-        patternOpacity: 0.24,
+        // Gold pattern on emerald (like the splash): the old white
+        // pattern at 0.24 under the 0.5 scrim wash was ~0.12
+        // effective — the girih lines merged into the emerald
+        // background. Gold at 0.32 + scrim 0.30 keeps the pattern
+        // clearly visible on the header.
+        patternColor: isDark ? AppTheme.goldDark : AppTheme.gold,
+        patternOpacity: 0.32,
+        scrimAlpha: 0.30,
         glowColor: isDark ? AppTheme.goldDark : AppTheme.gold,
         child: SafeArea(
           bottom: false,
@@ -530,9 +536,12 @@ class _MohallaFooter extends StatelessWidget {
       ),
       child: Stack(
         children: [
+          // Pattern layer: the old 0.12 / 0.18 opacity made the
+          // girih lines merge into the footer gradient — invisible
+          // on a real phone. 0.30 / 0.35 keeps it clearly visible.
           Positioned.fill(
             child: Opacity(
-              opacity: isDark ? 0.12 : 0.18,
+              opacity: isDark ? 0.30 : 0.35,
               child: CustomPaint(
                 painter: IslamicPatternPainter(
                   color: isDark ? Colors.white : AppTheme.emerald,

@@ -298,8 +298,8 @@ class _SplashPageState extends State<_SplashPage>
               // Gold ring + glow around the M mark. Rounded-square (NOT
               // a circle): GoldMark itself is a rounded square, and the
               // old circular ring cut across its corners — that was the
-              // "logo cut" on the splash. Radius 44 = 12 padding +
-              // the mark's own 24% corner radius. The 8 demo orbit
+              // "logo cut" on the splash. Radius 50 = 12 padding +
+              // the mark's own 24% corner radius (160 x 0.24 = 38). The 8 demo orbit
               // words circle the ring (radius 118) on the 46s spin.
               SizedBox(
                 width: 280,
@@ -310,7 +310,7 @@ class _SplashPageState extends State<_SplashPage>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(44),
+                        borderRadius: BorderRadius.circular(50),
                         border: Border.all(
                           color: AppTheme.gold.withValues(alpha: 0.55),
                           width: 1.5,
@@ -333,10 +333,12 @@ class _SplashPageState extends State<_SplashPage>
                             child: child,
                           );
                         },
-                        // Splash shows the 5A 3D artwork; everywhere else
-                        // uses the 5B mark (GoldMark default).
+                        // Splash shows the 5A 3D artwork, bigger now
+                        // (132 -> 160) so the 3D mosque reads clearly
+                        // instead of looking small inside the ring.
+                        // GoldMark default is the same 5A artwork.
                         child: const GoldMark(
-                          size: 132,
+                          size: 160,
                           asset: 'assets/images/mohalla_splash_icon.png',
                         ),
                       ),

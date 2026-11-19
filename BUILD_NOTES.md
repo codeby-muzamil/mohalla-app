@@ -777,3 +777,37 @@ says exactly what is missing and how to fill it.
 - **Build (owner):** `git pull`, `flutter build apk --release
   --split-per-abi`. Fully close + reopen the app: the 5B icon must
   NOT appear any more; only the 5A splash, then Home.
+
+## Splash 3D logo bigger + header/footer pattern visible (2026-11-19 ~22:41 PKT)
+- **Complaints (owner, phone test):** (1) splash should show the
+  3D logo; (2) do NOT change the translator fonts; (3) header and
+  footer pattern merges into the background; (4) Quran AI voice is
+  female, make it male.
+- **Verified first:** the repo's mohalla_splash_icon.png IS the 3D
+  5A artwork (checked the actual file: 3D gold mosque, glowing
+  crescent) and the splash code already shows it — the owner was
+  almost certainly testing a stale build (last confirmed build
+  01:22 PKT, before the 5A-everywhere change 1324f9e and the male
+  voice fix 68dcd5b). So the splash mark is now BIGGER instead:
+  GoldMark 132 -> 160, ring radius 44 -> 50, so the 3D mosque
+  reads clearly inside the ring. Translator fonts: NOT touched
+  anywhere in this pass (no font change in the diff at all).
+- **Header pattern (real bug):** white pattern at 0.24 under the
+  0.5 scrim wash was ~0.12 effective — the girih lines merged
+  into the emerald. Now GOLD pattern (like the splash) at 0.32
+  with scrim 0.30.
+- **Footer pattern (real bug):** pattern Opacity was 0.12 dark /
+  0.18 light over the gradient — invisible. Now 0.30 / 0.35.
+- **Quran female voice:** NO code change — the male/heavy fix
+  (68dcd5b: male-named voice per language + pitch 0.75) is already
+  in the repo, and the speaker-button code passes the right
+  language codes ('ur'/'en'/extra). It reaches the phone only
+  with a fresh build after `git pull`. If it STILL sounds female
+  after rebuilding, the phone has no male Urdu voice installed —
+  then download one in phone Settings -> Language -> Text-to-speech
+  -> Google TTS -> Install voice data (Urdu, male voice).
+- **Build (owner):** `git pull`, `flutter build apk --release
+  --split-per-abi`, uninstall old app, install arm64 APK. Check:
+  splash shows the big 3D mosque; header/footer girih pattern
+  clearly visible; Quran speaker button reads Urdu/English in a
+  male voice; translator fonts unchanged.
