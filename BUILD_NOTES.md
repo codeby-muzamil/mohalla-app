@@ -967,3 +967,25 @@ says exactly what is missing and how to fill it.
   AppTheme.mutedLight;` in both build methods (next to `gold` /
   `isDark`). No other change — `pub get` had already succeeded.
 - **Build (owner):** `git pull`, then build as usual.
+
+## Full audit + My Mosque field (2026-11-24 ~03:02 PKT)
+
+- **Audit:** 4-way read-only audit (Dart scope/imports, assets/pubspec,
+  Android native, cross-file APIs) — 55 Dart files, all assets, all
+  native config. Android: 0 issues. Dart scope: 0 issues (`muted`
+  fix verified in place; qibla_math API verified on pub.dev).
+  Assets/pubspec: no version conflict; all 13 JSON files parse; all
+  azan MP3s + fonts + launcher icons present. Notes only: local
+  workspace lacks `mohalla_splash_icon.png` (it IS in the repo and on
+  the owner's machine — his build is unaffected); local pubspec.lock
+  is stale (pub get regenerates it); Roboto is Flutter's default so
+  the undeclared fontFamily is harmless. Audit reports (local only,
+  NOT pushed): `audit/*.md` in this workspace.
+- **Fix — My Mosque could never be set:** `setMasjidName` was never
+  called and Settings had no name field, yet Home said to set it in
+  "Settings > My Mosque" — so `masjidName` stayed `''` forever, the
+  "Set your mosque" card could never be dismissed and the "Your
+  mosque" cards never appeared. Settings now has a "My Mosque"
+  section (name field + Save/Remove) wired to `setMasjidName`,
+  right above "My mosque's prayer timings".
+- **Build (owner):** `git pull`, then build as usual.

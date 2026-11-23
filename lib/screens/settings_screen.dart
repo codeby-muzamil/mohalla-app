@@ -33,6 +33,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _voiceTestResult;
   late final TextEditingController _geminiKeyController;
   String? _geminiKeyMessage;
+  late final TextEditingController _mosqueNameController;
+  String? _mosqueNameMessage;
 
   @override
   void initState() {
@@ -40,11 +42,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // The field always starts empty: the saved key is never shown
     // back (only its masked form, last 4 characters, is displayed).
     _geminiKeyController = TextEditingController();
+    // Pre-filled with the saved mosque name (unlike the key, the
+    // name is not a secret, so showing it back is fine).
+    _mosqueNameController = TextEditingController(
+      text: context.read<SettingsProvider>().masjidName,
+    );
   }
 
   @override
   void dispose() {
     _geminiKeyController.dispose();
+    _mosqueNameController.dispose();
     super.dispose();
   }
 
@@ -60,6 +68,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _geminiKeyMessage = key.isEmpty
           ? 'Key removed — AI Dost is back to offline answers.'
           : 'Key saved on this phone only — Gemini is connected.';
+    });
+  }
+
+  /// Save the mosque name (or clear it). Home and Mosques show it
+  /// right away; the "Set your mosque" card disappears once set.
+  void _saveMosqueName() {
+    final name = _mosqueNameController.text.trim();
+    final settings = context.read<SettingsProvider>();
+    settings.setMasjidName(name);
+    setState(() {
+      _mosqueNameMessage = name.isEmpty
+          ? 'Mosque removed.'
+          : 'Mosque saved — it now shows on Home and in Mosques.';
     });
   }
 
@@ -473,6 +494,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        const SectionTitle(title: 'My Mosque'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      settings.masjidName.isNotEmpty
+                          ? Icons.check_circle
+                          : Icons.mosque,
+                      color: settings.masjidName.isNotEmpty ? accent : gold,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        settings.masjidName.isNotEmpty
+                            ? settings.masjidName
+                            : 'No mosque set yet',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your mosque shows on Home and in Mosques. Once set, '
+                  'its azan and iqama times will show on Home.',
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _mosqueNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Mosque name',
+                    hintText: 'e.g. Jamia Masjid Khizra',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    GoldButton(
+                      label: 'Save mosque',
+                      icon: Icons.mosque,
+                      onPressed: _saveMosqueName,
+                    ),
+                    if (settings.masjidName.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          _mosqueNameController.clear();
+                          _saveMosqueName();
+                        },
+                        child: const Text('Remove'),
+                      ),
+                    ],
+                  ],
+                ),
+                if (_mosqueNameMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _mosqueNameMessage!,
+                    style: TextStyle(fontSize: 12, color: muted),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
