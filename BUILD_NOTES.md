@@ -943,7 +943,6 @@ says exactly what is missing and how to fill it.
   "Your mosque" card.
 
 ## share_plus vs geolocator: pub get failed, fixed (2026-11-19 ~23:28 PKT)
-
 - **Error:** `flutter pub get` failed — geolocator 14.1.2 needs
   win32 ^6.0.0 (via package_info_plus ^10.0.0) but share_plus
   ^10.0.0 pins win32 ^5.x. Version solving failed.
@@ -956,3 +955,15 @@ says exactly what is missing and how to fill it.
   `SharePlus.instance.share(ShareParams(text: ...))`.
 - **Build (owner):** `git pull`, `flutter pub get` (must succeed
   now), then build as usual. The copy-link fallback is NOT needed.
+
+## `muted` undefined: build failed, fixed (2026-11-24 ~02:49 PKT)
+
+- **Error:** `flutter build apk` failed — `The getter 'muted' isn't
+  defined` in tracker_screen.dart (lines 305, 349) and
+  zyada_screen.dart (line 167). The same-to-same passes used `muted`
+  without defining it in those build methods (it was only defined in
+  zyada's tool-tile builder, a different scope).
+- **Fix:** added `final muted = isDark ? AppTheme.mutedDark :
+  AppTheme.mutedLight;` in both build methods (next to `gold` /
+  `isDark`). No other change — `pub get` had already succeeded.
+- **Build (owner):** `git pull`, then build as usual.

@@ -40,6 +40,7 @@ class ZyadaScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     final tools = [
       _Tool('names', Icons.favorite, '99 Names of Allah', 'Asma-ul-Husna'),
       _Tool('mushaf', Icons.auto_stories, 'Mushaf — 16 Line',

@@ -113,6 +113,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ink = isDark ? AppTheme.nightInk : AppTheme.ink;
     final gold = isDark ? AppTheme.goldDark : AppTheme.gold;
+    final muted = isDark ? AppTheme.mutedDark : AppTheme.mutedLight;
     final chipBg = isDark ? AppTheme.chipDark : AppTheme.chipLight;
     final arabic =
         isDark ? AppTheme.arabicGold : AppTheme.arabicGreen;
