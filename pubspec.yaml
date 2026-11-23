@@ -68,7 +68,14 @@ dependencies:
   # Open Google Maps links for nearby mosques (no Maps API key needed).
   url_launcher: 6.3.0
   # "Share app" on the More screen (native share sheet).
-  share_plus: ^10.0.0
+  # 13.3.1 (2026-11-19): geolocator 14.1.2 needs win32 ^6.0.0 but
+  # share_plus 10 needs win32 <6.0.0, so `flutter pub get` failed
+  # (2026-11-19 23:28 PKT). 13.3.1 bumps win32 to 6.0.0, so both
+  # resolve together. Needs Flutter >=3.38.1 / Dart >=3.10 (app:
+  # Flutter 3.50 / Dart 3.14) and AGP >=8.12.1 (app: 9.3.1).
+  # Old `Share.share` is deprecated in 13.x but still works; the
+  # call in zyada_screen.dart uses the new SharePlus API instead.
+  share_plus: ^13.3.1
   # Full map on the My Location screen (OpenStreetMap tiles, free —
   # no API key, no Google Cloud project). Versions verified on
   # pub.dev 2026-11-19: flutter_map 8.3.2 needs sdk >=3.6.0 and

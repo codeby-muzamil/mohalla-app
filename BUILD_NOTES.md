@@ -941,3 +941,18 @@ says exactly what is missing and how to fill it.
   tiles), Profile (account + quick links), Tracker Tasbih (daily
   goal + history), Zakat (Clear all), News subtitle, Mosques
   "Your mosque" card.
+
+## share_plus vs geolocator: pub get failed, fixed (2026-11-19 ~23:28 PKT)
+
+- **Error:** `flutter pub get` failed — geolocator 14.1.2 needs
+  win32 ^6.0.0 (via package_info_plus ^10.0.0) but share_plus
+  ^10.0.0 pins win32 ^5.x. Version solving failed.
+- **Fix (the resolver's own suggestion):** share_plus ^10.0.0 ->
+  ^13.3.1. 13.x uses win32 6.0.0, so both resolve together.
+  Verified on pub.dev: 13.3.1 needs Flutter >=3.38.1 / Dart
+  >=3.10 / AGP >=8.12.1 — the app has Flutter 3.50 / Dart 3.14 /
+  AGP 9.3.1, so it fits. The old static `Share.share()` is
+  deprecated in 13.x, so zyada_screen.dart now uses
+  `SharePlus.instance.share(ShareParams(text: ...))`.
+- **Build (owner):** `git pull`, `flutter pub get` (must succeed
+  now), then build as usual. The copy-link fallback is NOT needed.

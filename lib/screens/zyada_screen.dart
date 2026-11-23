@@ -21,9 +21,11 @@ class ZyadaScreen extends StatelessWidget {
       'https://play.google.com/store/apps/details?id=com.mohalla.app';
 
   static Future<void> _shareApp() async {
-    await Share.share(
-      'Get Mohalla — your mohalla, your mosque. Prayer times, Quran, '
-      'Qibla and duas, free for everyone.\n$_storeUrl',
+    await SharePlus.instance.share(
+      ShareParams(
+        text: 'Get Mohalla — your mohalla, your mosque. Prayer times, '
+            'Quran, Qibla and duas, free for everyone.\n$_storeUrl',
+      ),
     );
   }
 
