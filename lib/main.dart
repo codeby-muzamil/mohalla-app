@@ -99,13 +99,23 @@ class _MohallaAppState extends State<MohallaApp> {
           child: child!,
         );
       },
+      // The two OnboardingFlow widgets MUST have different keys: when
+      // the splash finishes, home swaps from the splash flow to the
+      // onboarding flow (same type). Without distinct keys Flutter
+      // reuses the old state — which stays on page 0 (splash) with
+      // no timer left — and the app never moves past the splash on a
+      // fresh install. The keys force a fresh state at step 1.
       home: !_splashShown
           ? OnboardingFlow(
+              key: const ValueKey('launch-splash'),
               onSplashDone: () => setState(() => _splashShown = true),
             )
           : settings.onboarded
               ? const RootScreen()
-              : const OnboardingFlow(initialStep: 1),
+              : const OnboardingFlow(
+                  key: ValueKey('onboarding'),
+                  initialStep: 1,
+                ),
     );
   }
 }

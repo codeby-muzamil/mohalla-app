@@ -2,11 +2,12 @@
 <resources>
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
-        <!-- Android 12+ system splash: NO icon. Without this the system
-             shows the 5B launcher icon here before the Flutter splash.
-             Transparent icon + emerald background, so only the Flutter
-             5A splash shows. The 5A splash itself is untouched. -->
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <!-- Android 12+ system splash: the 5B launcher icon on the
+             emerald background, then the Flutter 5A splash. (The icon
+             was hidden here in 1e9d4a2; restored 2026-11-24 on the
+             owner's request — he wants the icon back on the green
+             launch window.) -->
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="android:windowSplashScreenBackground">@color/launch_background</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">

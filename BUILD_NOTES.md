@@ -989,3 +989,32 @@ says exactly what is missing and how to fill it.
   section (name field + Save/Remove) wired to `setMasjidName`,
   right above "My mosque's prayer timings".
 - **Build (owner):** `git pull`, then build as usual.
+
+## Splash stuck on fresh install, fixed (2026-11-24 ~03:44 PKT)
+
+- **Bug:** on a fresh install (old app uninstalled, so `onboarded` is
+  false) the app never moved past the splash. Cause: `home:` in
+  main.dart swapped from `OnboardingFlow(onSplashDone: ...)` to
+  `OnboardingFlow(initialStep: 1)` — same widget type, no keys, so
+  Flutter reused the old state: it stayed on page 0 (splash) with
+  the 2.6s timer already spent. No `didUpdateWidget` existed to
+  react to the new `initialStep`. (Logged-in users never hit it:
+  their home swaps to `RootScreen`, a different type.)
+- **Fix:** distinct keys on the two flows —
+  `ValueKey('launch-splash')` and `ValueKey('onboarding')` — so the
+  post-splash flow starts fresh at step 1 (Permissions). One-line
+  change, no flow redesign.
+- **Build (owner):** `git pull`, `flutter clean`, then build as usual.
+
+## Launch-window icon restored (2026-11-24 ~03:46 PKT)
+
+- **Request:** the green launch window showed the icon before, now it
+  does not — put it back.
+- **Cause:** 1e9d4a2 had hidden the Android 12+ system splash icon
+  (`windowSplashScreenAnimatedIcon` -> transparent drawable) so only
+  the Flutter 5A splash showed.
+- **Fix:** `windowSplashScreenAnimatedIcon` back to
+  `@mipmap/ic_launcher` (5B) in both `values/styles.xml` and
+  `values-night/styles.xml`; background stays emerald. Launch is now:
+  green window with 5B icon -> Flutter 5A splash -> Home.
+- **Build (owner):** `git pull`, `flutter clean`, then build as usual.
